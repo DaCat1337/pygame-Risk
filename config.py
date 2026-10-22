@@ -82,10 +82,10 @@ NEUTRAL_GARRISON_PER_SIZE = (4, 11)      # neutral garrison = size * randint(4, 
 # --- special node types (the start nodes are always NORMAL; see core/node.py, core/mapgen.py) ---
 NODE_NORMAL, NODE_FORTRESS, NODE_FACTORY, NODE_RELAY = 0, 1, 2, 3
 KIND_NAMES = ("NORMAL", "FORTRESS", "FACTORY", "RELAY")
-KIND_HELP = {NODE_FORTRESS: "defenders count double", NODE_FACTORY: "makes twice the ships",
+KIND_HELP = {NODE_FORTRESS: "thick walls, much harder to take", NODE_FACTORY: "makes twice the ships",
              NODE_RELAY: "its ships fly faster"}
 KIND_MIX = (0.14, 0.12, 0.10)            # share of the non-start nodes that become FORTRESS / FACTORY / RELAY
-FORTRESS_SHIELD = 2                      # it takes this many attacking ships to remove one defender
+FORTRESS_BONUS = 1.0                     # a fortress needs this many MORE attacking ships per defender than a normal node
 FACTORY_BOOST = 2                        # production multiplier of a factory
 RELAY_SPEED = 1.5                        # ships launched from a relay fly this much faster
 
@@ -105,6 +105,22 @@ SHIP_SPEED = 195.0                       # pixels per second
 LANE_SPREAD = 0.6                        # lane offset = +-0.6 * target radius (makes streams, not lines)
 SEND_FRACTIONS = (0.25, 0.5, 0.75, 1.0)
 DEFAULT_SEND_INDEX = 1                   # 50%
+
+# --- match length ("pace"): the title menu's MATCH LENGTH chooses one of these presets ---
+# Without a brake the stronger side snowballs and a match is over in a minute or two. The three brakes:
+#   defence : attacking ships needed to remove ONE defender (1 = one for one; a fortress adds FORTRESS_BONUS)
+#   unrest  : beats a freshly captured node makes no ships (the conquered people are not working for you yet)
+#   speed   : ship speed as a share of SHIP_SPEED (a longer trip gives the defender time to react)
+# Measured with AI-vs-AI matches (32 per row): MEDIUM roughly doubles the length of a match, LONG roughly triples it.
+PACE_NAMES = ("SHORT", "MEDIUM", "LONG")
+_PACES = [(1.0, 0, 1.0), (1.5, 8, 0.77), (2.0, 8, 0.77)]      # (defence, unrest beats, speed share) for each name
+PACE = {"defence": 1.0, "unrest": 0, "speed": SHIP_SPEED}      # the LIVE values: apply_pace() changes them in place
+
+
+def apply_pace(index):
+    """Switch the match-length preset (0 SHORT, 1 MEDIUM, 2 LONG). Every file reads PACE[...] when it needs a value."""
+    defence, unrest, speed_share = _PACES[index]
+    PACE.update(defence=defence, unrest=unrest, speed=SHIP_SPEED * speed_share)
 
 # --- mid-air combat -----------------------------------------------------------------
 CLASH_DIST = 10                          # ships of different owners this close annihilate

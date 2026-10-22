@@ -14,7 +14,7 @@ import time
 import pygame
 
 from audio.conductor import Conductor
-from config import apply_palette, FPS_TARGET, DT, MAX_TICKS_PER_FRAME, COUNTDOWN_BEATS, SEND_FRACTIONS, SCREEN_W, SCREEN_H, FADE_SECONDS
+from config import apply_pace, apply_palette, FPS_TARGET, DT, MAX_TICKS_PER_FRAME, COUNTDOWN_BEATS, SEND_FRACTIONS, SCREEN_W, SCREEN_H, FADE_SECONDS
 from core.world import World
 from graphics.fonts import Fonts
 from graphics.screen import save_screenshot, toggle_fullscreen
@@ -33,6 +33,7 @@ class Game:
         self.settings_path = settings_path
         self.shots_dir = shots_dir
         self.settings = load_settings(settings_path)
+        apply_pace(self.settings["pace"])
         apply_palette(self.settings["colorblind"], self.settings["player_color"])           # before the screens are built, so they start with the right colours
         self.fonts = Fonts()
         self.clock = pygame.time.Clock()
@@ -91,6 +92,7 @@ class Game:
         """Create a fresh World and show the play screen. seed=None picks a new random map."""
         self.seed = seed if seed is not None else int(time.time() * 1000) % 1_000_000
         s = self.settings
+        apply_pace(s["pace"])
         world = World(self.seed, s["opponents"] + 1, s["map_size"], countdown_beats=COUNTDOWN_BEATS, has_player=has_player)
         world.add_opponents(s["difficulty"])
         self.overlay = None
@@ -172,6 +174,8 @@ class Game:
             self.toast_if_building()
         elif key in ("colorblind", "player_color"):
             self.apply_palette()
+        elif key == "pace":
+            apply_pace(value)
 
     def toast_if_building(self):
         """A track that was never played yet is synthesised in the background (a few seconds): say so."""

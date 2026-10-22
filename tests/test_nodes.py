@@ -10,8 +10,9 @@ import math
 import helpers
 from helpers import check
 
-from config import (SHIP_SPEED, RELAY_SPEED, FACTORY_BOOST, FORTRESS_SHIELD, NODE_NORMAL, NODE_FORTRESS, NODE_FACTORY,
+from config import (SHIP_SPEED, RELAY_SPEED, FACTORY_BOOST, FORTRESS_BONUS, NODE_NORMAL, NODE_FORTRESS, NODE_FACTORY,
                     NODE_RELAY, KIND_MIX)
+from config import apply_pace, PACE, PACE_NAMES
 from core.ai import ai_think
 from core.mapgen import generate_map
 from core.node import Node
@@ -23,6 +24,7 @@ def world_with(*nodes):
 
 
 def run():
+    apply_pace(0)                                           # the rules are tested with the original SHORT pace (the game's default is LONG)
     # --- FACTORY: twice the production, shown by Node.production and by the beat
     plain, factory = Node(300, 500, 2, owner=1, garrison=10), Node(300, 500, 2, owner=1, garrison=10, kind=NODE_FACTORY)
     check(plain.production == 2 and factory.production == 2 * FACTORY_BOOST, "a factory makes twice the ships")
@@ -33,7 +35,7 @@ def run():
     # --- FORTRESS: only every second attacker hurts a defender
     fort = Node(800, 500, 2, owner=0, garrison=10, kind=NODE_FORTRESS)
     w = world_with(Node(300, 500, 2, owner=1, garrison=10), fort, Node(1600, 500, 2, owner=2, garrison=10))
-    check(fort.shield == FORTRESS_SHIELD and w.nodes[0].shield == 1, "only a fortress has a shield")
+    check(fort.shield == 1 + FORTRESS_BONUS and w.nodes[0].shield == 1, "only a fortress has the extra wall (at SHORT pace: 2 attackers per defender)")
     for _ in range(10):
         w._land(1, 1)
     check(fort.garrison == 5 and fort.owner == 0, "10 attackers remove only 5 defenders from a fortress")
@@ -100,6 +102,46 @@ def run():
         return sum(int(nodes[s].garrison * f) for s, t, f in orders if t == 2)
 
     check(ai_sends(NODE_NORMAL) > 0 and ai_sends(NODE_FORTRESS) > ai_sends(NODE_NORMAL), "the AI sends more ships against a fortress")
+
+
+    # --- MATCH LENGTH presets (config.PACE): defenders count more, conquered nodes are in unrest, ships fly slower
+    check(PACE_NAMES == ("SHORT", "MEDIUM", "LONG"), "three match-length presets")
+    apply_pace(2)
+    check(PACE["defence"] == 2.0 and PACE["unrest"] == 8 and abs(PACE["speed"] - SHIP_SPEED * 0.77) < 1e-9, "LONG: defence 2, unrest 8 beats, ships at 77% speed")
+    normal = Node(800, 500, 2, owner=0, garrison=10)
+    fort = Node(800, 500, 2, owner=0, garrison=10, kind=NODE_FORTRESS)
+    check(normal.shield == 2.0 and fort.shield == 2.0 + FORTRESS_BONUS, "LONG: 2 attackers per defender, 3 in a fortress")
+    w = world_with(Node(300, 500, 2, owner=1, garrison=10), normal, Node(1600, 500, 2, owner=2, garrison=10))
+    for _ in range(10):
+        w._land(1, 1)
+    check(normal.garrison == 5, "LONG: 10 attackers remove only 5 defenders")
+    check(w.needed_to_capture(1, [0]) == 5 * 2 + 1, "LONG: 'needs ~N' counts the defence")
+    apply_pace(1)
+    normal2 = Node(800, 500, 2, owner=0, garrison=10)
+    w = world_with(Node(300, 500, 2, owner=1, garrison=10), normal2, Node(1600, 500, 2, owner=2, garrison=10))
+    for _ in range(12):
+        w._land(1, 1)
+    check(normal2.garrison == 10 - math.floor(12 / 1.5), "MEDIUM: 1.5 attackers per defender (12 attackers remove 8)")
+    apply_pace(2)
+    nodes = [Node(300, 500, 2, owner=1, garrison=10), Node(800, 500, 1, owner=0, garrison=0), Node(1600, 500, 2, owner=2, garrison=10)]
+    w = world_with(*nodes)
+    w._land(1, 1)
+    w._land(1, 1)
+    check(nodes[1].owner == 1 and nodes[1].unrest == 8, "a captured node is in unrest for 8 beats")
+    g = nodes[1].garrison
+    for _ in range(240):                                    # beats 0..7
+        w.tick()
+    check(nodes[1].garrison == g, "...and makes no ships during that time")
+    w.tick()                                                # tick 240 = beat 8
+    check(nodes[1].garrison == g + nodes[1].production, "...then produces again")
+    w = world_with(Node(300, 500, 2, owner=1, garrison=10), Node(1600, 500, 2, owner=2, garrison=10), Node(800, 300, 1, owner=0, garrison=5))
+    w.order([0], 2, 1.0, 1)
+    for _ in range(70):
+        w.tick()
+    speeds = [math.hypot(*w.ships.vel[i]) for i in range(len(w.ships.alive)) if w.ships.alive[i]]
+    check(speeds and all(abs(s - PACE["speed"]) < 0.5 for s in speeds), "LONG: ships fly at the slower speed")
+    apply_pace(0)
+    check(PACE["defence"] == 1.0 and PACE["unrest"] == 0 and PACE["speed"] == SHIP_SPEED, "SHORT is the original rules")
 
 
 if __name__ == "__main__":

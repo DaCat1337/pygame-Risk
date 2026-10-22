@@ -14,7 +14,7 @@ import math
 
 import numpy as np
 
-from config import MAX_SHIPS, MAX_FLIGHT_PER_FACTION, SHIP_SPEED, LANE_SPREAD, DT
+from config import MAX_SHIPS, MAX_FLIGHT_PER_FACTION, PACE, LANE_SPREAD, DT
 
 
 class Ships:
@@ -60,11 +60,12 @@ class Ships:
         vx, vy = aim_x - source.x, aim_y - source.y
         norm = np.hypot(vx, vy)
         vx, vy = vx / norm, vy / norm                        # unit direction of each ship
-        back = rng.uniform(0.0, SHIP_SPEED * DT, k)          # spawned somewhere inside this tick: no clumps
+        speed = PACE["speed"]
+        back = rng.uniform(0.0, speed * DT, k)          # spawned somewhere inside this tick: no clumps
         self.pos[slots, 0] = source.x + vx * (source.radius - back)
         self.pos[slots, 1] = source.y + vy * (source.radius - back)
-        self.vel[slots, 0] = vx * SHIP_SPEED * speed_mult
-        self.vel[slots, 1] = vy * SHIP_SPEED * speed_mult
+        self.vel[slots, 0] = vx * speed * speed_mult
+        self.vel[slots, 1] = vy * speed * speed_mult
         self.owner[slots] = owner
         self.target[slots] = target_index
         self.alive[slots] = True

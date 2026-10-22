@@ -3,6 +3,7 @@ import numpy as np
 
 import helpers
 from helpers import check
+from config import apply_pace
 from core.combat import resolve_clashes
 from core.node import Node
 from core.ships import Ships
@@ -25,6 +26,7 @@ def duel(n_a, n_b, size=1, seed=1, ticks=250):
 
 
 def run():
+    apply_pace(0)                                           # the rules are tested with the original SHORT pace (the game's default is LONG)
     a, b, _ = duel(30, 30)
     check(a + b <= 4, f"30 vs 30 on the same line cancel out almost completely (left: {a} + {b})")
     a, b, _ = duel(30, 20)

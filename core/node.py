@@ -8,12 +8,11 @@ A @dataclass is Python writing the boring __init__ for us: list the fields and y
 write Node(x=10, y=20, ...).
 
 Special kinds (config.KIND_NAMES): a NORMAL node is the plain circle. A FORTRESS is hard to take (its
-defenders count double), a FACTORY makes twice the ships, a RELAY launches faster ships.
+attackers need more ships per defender), a FACTORY makes twice the ships, a RELAY launches faster ships.
 """
 from dataclasses import dataclass
 
-from config import (NODE_RADIUS, CAP_PER_SIZE, NODE_NORMAL, NODE_FORTRESS, NODE_FACTORY, FORTRESS_SHIELD,
-                    FACTORY_BOOST)
+from config import (NODE_RADIUS, CAP_PER_SIZE, NODE_NORMAL, NODE_FORTRESS, NODE_FACTORY, FORTRESS_BONUS, FACTORY_BOOST, PACE)
 
 
 @dataclass
@@ -26,7 +25,8 @@ class Node:
     radius: int = 0
     cap: int = 0               # production stops when the garrison reaches this
     kind: int = NODE_NORMAL    # NODE_NORMAL / NODE_FORTRESS / NODE_FACTORY / NODE_RELAY (config.py)
-    absorbed: int = 0          # fortress only: how many attackers have landed (every 2nd one hurts a defender)
+    absorbed: int = 0          # how many attackers have landed (used to count off the fortress shield)
+    unrest: int = 0            # beats left until a freshly captured node makes ships again
 
     def __post_init__(self):
         # Fill radius and cap from the size unless the caller gave them.
@@ -42,5 +42,6 @@ class Node:
 
     @property
     def shield(self):
-        """How many attacking ships it takes to remove ONE defender: 2 in a fortress, otherwise 1."""
-        return FORTRESS_SHIELD if self.kind == NODE_FORTRESS else 1
+        """How many attacking ships it takes to remove ONE defender: the match-length setting (config.PACE), plus the
+        FORTRESS_BONUS in a fortress."""
+        return PACE["defence"] + (FORTRESS_BONUS if self.kind == NODE_FORTRESS else 0.0)

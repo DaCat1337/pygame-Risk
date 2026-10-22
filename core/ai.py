@@ -15,10 +15,12 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from config import (AI_TABLE, DIFFICULTIES, AI_PLAYER_BIAS_EXTREME, AI_SURPLUS, AI_SURPLUS_FLAT, SHIP_SPEED, BEAT,
+from config import (AI_TABLE, DIFFICULTIES, AI_PLAYER_BIAS_EXTREME, AI_SURPLUS, AI_SURPLUS_FLAT, PACE, BEAT,
                     PLAYER, NEUTRAL, NODE_FACTORY)
 
-SPEED_PER_BEAT = SHIP_SPEED * BEAT        # pixels a ship flies in one beat
+def _per_beat():
+    """Pixels a ship flies in one beat (it depends on the match-length setting)."""
+    return PACE["speed"] * BEAT
 
 
 @dataclass
@@ -106,7 +108,7 @@ def ai_think(world, faction, difficulty, rng):
             enemy = theirs[i].sum()
             if enemy <= 0 or missions >= cfg["max_orders"]:
                 continue
-            beats = nearest[i] / SPEED_PER_BEAT
+            beats = nearest[i] / _per_beat()
             holding = nodes[i].garrison + nodes[i].production * beats + mine[i]
             if enemy > holding:
                 helpers = sorted((j for j in own if j != i), key=lambda j: _dist(nodes[i], nodes[j]))
@@ -128,9 +130,9 @@ def ai_think(world, faction, difficulty, rng):
             continue
         nearest_own = min(own, key=lambda j: _dist(nodes[j], node))
         distance = _dist(nodes[nearest_own], node)
-        needed = node.garrison * node.shield - mine[t]                 # what we already sent counts (a fortress: x2 per defender)
+        needed = node.garrison * node.shield - mine[t]                 # what we already sent counts (a fortress: more per defender)
         if node.owner != NEUTRAL:
-            needed += (float(theirs[t][node.owner]) + node.production * distance / SPEED_PER_BEAT) * node.shield   # defender's help + its production
+            needed += (float(theirs[t][node.owner]) + node.production * distance / _per_beat()) * node.shield   # defender's help + its production
         if mine[t] > 0 and needed <= 0:
             continue                                                   # enough ships are already on the way
         needed = max(needed, 1.0)

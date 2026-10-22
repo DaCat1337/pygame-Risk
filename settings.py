@@ -8,12 +8,12 @@ Used by         : main.py, game.py.
 import json
 
 from audio.tracks import SHUFFLE
-from config import SCALINGS, DIFFICULTIES
+from config import SCALINGS, DIFFICULTIES, PACE_NAMES
 
 DEFAULT_SETTINGS = {
     "music_on": True, "music_vol": 0.5, "music_track": 0, "dynamic_music": True,    # 0 = first track ... SHUFFLE (= number of tracks) = random
     "sfx_on": True, "sfx_vol": 0.7,
-    "hints": True, "bloom": True, "colorblind": False, "player_color": 0, "scaling": 0,                             # scaling: index into config.SCALINGS
+    "hints": True, "bloom": True, "colorblind": False, "player_color": 0, "pace": 2, "scaling": 0,                             # scaling: index into config.SCALINGS
     "opponents": 1,                                           # 1..3
     "difficulty": 1,                                          # index into config.DIFFICULTIES: 0 EASY, 1 NORMAL, 2 HARD, 3 EXTREME
     "map_size": 1,                                            # 0 SMALL, 1 MEDIUM, 2 LARGE
@@ -21,7 +21,7 @@ DEFAULT_SETTINGS = {
 }
 
 # allowed (lowest, highest) for the whole-number settings
-INT_RANGES = {"music_track": (0, SHUFFLE), "player_color": (0, 3), "scaling": (0, len(SCALINGS) - 1), "opponents": (1, 3),
+INT_RANGES = {"music_track": (0, SHUFFLE), "player_color": (0, 3), "pace": (0, len(PACE_NAMES) - 1), "scaling": (0, len(SCALINGS) - 1), "opponents": (1, 3),
               "difficulty": (0, len(DIFFICULTIES) - 1), "map_size": (0, 2), "send_fraction": (0, 3)}
 
 

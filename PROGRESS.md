@@ -20,6 +20,9 @@ Continue with: "Read PLAN.md and PROGRESS.md, continue".
 | v3 idea 3: colour-blind mode | done | `game4 phase6 fix6` | 403 checks |
 | v3 feedback: calmer dynamic music + DYNAMIC MUSIC toggle, new TOUGH difficulty | done | `game4 phase6 fix7` | 414 checks |
 | v3 feedback: difficulties renamed, YOUR COLOUR choice | done | `game4 phase6 fix8` | 449 checks |
+| v3 feedback: MATCH LENGTH (matches were too short) | done | `game4 phase6 fix9` | 460 checks |
+| finished v4 (owner: "it works great now") | done | `game4 finished v4` (everything incl. settings.json) | 460 checks |
+| finished v3 (README rewritten; node types, dynamic music, colour-blind mode, 4 difficulties, colour choice) | done | `game4 finished v3` (everything incl. settings.json) | 449 checks |
 
 **Checkpoint C reached (everything in the plan is built). Next: the owner's final run-through; after that code freeze (fixes only).**
 
@@ -65,6 +68,18 @@ After finished v2, the owner chose 3 ideas: node types, dynamic music intensity,
   order; colour names follow (FACTION_NAMES[1] stays "YOU"). `config.color_choices(colorblind)` lists the four (rgb, name). Applies at once
   (Game.apply_palette repaints nodes, territory glow and the title text). Instruments are still tied to the faction number, not the colour.
   Only in the title menu (not in the in-match Esc menu).
+
+- Owner: "AI matches only last a minute or two, can we change that?" -> measured AI-vs-AI (tools: scratch scripts, 16 maps x both sides): two EQUAL AIs
+  mostly stall to the 12-minute limit; the short matches are the lopsided ones (EXTREME v HARD 30 s, EXTREME v NORMAL 28 s, HARD v NORMAL 92 s) because
+  captured nodes add production and the stronger side snowballs. Three brakes, chosen together by the new title-menu choice MATCH LENGTH
+  (setting `pace`, default 2 = LONG; `config.PACE_NAMES`, `_PACES`, live dict `PACE`, `apply_pace(index)`):
+  SHORT = old rules; MEDIUM = 1.5 attackers per defender, 8 beats of unrest after a capture, ships at 77% speed; LONG = 2.0 / 8 / 77%.
+  Measured median match: MEDIUM 62 / 55 / 131 s, LONG 91 / 90 / 196 s for the same three pairs (stalls to 12 min: 0-3 of 32 on MEDIUM, 2-7 of 32 on LONG).
+  Code: `Node.shield = PACE["defence"] + FORTRESS_BONUS (fortress only; was x2 -> now +1 so a fortress is not absurd on LONG)`, `Node.unrest`
+  (counted down in `World._on_beat`, set in `_land` on capture), `PACE["speed"]` in ships.launch / world.needed_to_capture / ai (`_per_beat()`),
+  fractional defence handled in `World._land` (`floor(absorbed / shield)`). `SHIP_SPEED` stays the base for all presets. The "needs ~N" label and
+  the AI count the defence. The rule tests run at SHORT (`apply_pace(0)` at the start of test_world / combat / ai / nodes), Game tests at the
+  default LONG. NOTE: the earlier notes about the fortress ("defenders count double") describe SHORT.
 
 After finished v1 (owner: "every ~12 beats the circles stop giving light"):
 - Cause found by measuring the light around a node frame by frame: a dip every 16 beats (the chord changes, ~8 s). The dot grid was

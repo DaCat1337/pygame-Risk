@@ -50,7 +50,7 @@ on the spot. Other tracks are built the first time you pick them (a message tell
 
 ## The menus
 
-**Title menu:** PLAY, OPPONENTS (1-3), DIFFICULTY (EASY / NORMAL / HARD / EXTREME), MAP (small / medium / large),
+**Title menu:** PLAY, OPPONENTS (1-3), DIFFICULTY (EASY / NORMAL / HARD / EXTREME), MAP (small / medium / large), **MATCH LENGTH** (short / medium / long),
 MUSIC (four tracks or shuffle; changing it previews the track on the next beat), **YOUR COLOUR** (cyan / magenta / amber / lime,
 the computer opponents get the other colours), WATCH AI BATTLE, HOW TO PLAY, SETTINGS, QUIT.
 
@@ -176,13 +176,13 @@ Every sound is a sum of sine waves, noise and envelopes calculated with NumPy. N
 
 ### 6. Special nodes (`core/node.py`, `core/mapgen.py`, `core/world.py`)
 Some neutral nodes are special, and you can tell them apart by their outline (hover one to read what it does):
-- **FORTRESS** (double ring with four towers): only every second attacking ship hurts a defender, so its defenders count double.
+- **FORTRESS** (double ring with four towers): thick walls. It takes one more attacking ship per defender than in a normal node.
 - **FACTORY** (turning gear): makes twice the ships per beat.
 - **RELAY** (diamond): the ships launched from it fly 1.5x faster.
 
 The map generator hands them out with its own dice, so a seed still gives the same positions as before; on a 2-player map a
 node's mirrored twin gets the same kind, so the map stays fair. Start nodes are always plain. The AI counts a fortress as
-twice as expensive and likes factories. The numbers are in `config.py` (`KIND_MIX`, `FORTRESS_SHIELD`, `FACTORY_BOOST`, `RELAY_SPEED`).
+twice as expensive and likes factories. The numbers are in `config.py` (`KIND_MIX`, `FORTRESS_BONUS`, `FACTORY_BOOST`, `RELAY_SPEED`).
 
 ### 7. Your colour and colour-blind mode (`config.py` `apply_palette`, `graphics/shapes.py`)
 **YOUR COLOUR** in the title menu chooses which of the four colours you play; the computer opponents get the rest.
@@ -192,7 +192,19 @@ chosen by *simulating* the three common kinds of colour blindness and keeping th
 as large as possible (`tests/test_colors.py` re-checks it). The colours live in dicts that are changed *in place*, so every
 file that imported them sees the new palette at once.
 
-### 8. Looking good and staying fast (`graphics/`)
+### 8. How long a match lasts (`config.py` `PACE`, `apply_pace`)
+Without a brake the stronger side snowballs: every captured node adds production, so one good attack decides the match in a minute
+or two. The title menu's **MATCH LENGTH** chooses three brakes at once:
+- **defence**: how many attacking ships it takes to remove one defender (SHORT 1, MEDIUM 1.5, LONG 2),
+- **unrest**: a freshly captured node makes no ships for a few beats (SHORT 0, MEDIUM and LONG 8),
+- **speed**: ships fly slower, which gives the defender time to react (SHORT 100%, MEDIUM and LONG 77%).
+
+I chose the presets by playing the AI levels against each other (32 matches per setting). With a clear gap in strength, SHORT
+takes about 30 s, MEDIUM about 1 minute and LONG about 1.5 to 3 minutes. Two equally strong AIs sometimes stall until the 12-minute
+limit, then the player with the most nodes wins. SHORT is the original rule set. The current values are kept in one small dictionary
+(`PACE`) that `apply_pace()` changes in place, and the other files read it when they need it.
+
+### 9. Looking good and staying fast (`graphics/`)
 Everything pretty is drawn **additively** (light adds up, like real light) and from pictures made once with NumPy: the glow
 around nodes, the starfield, the soft territory glow. The territory glow is worked out on a coarse grid with one matrix product
 and a little noise ("dithering") hides the brightness steps. Whole-screen darkening uses a ready-made picture instead of
@@ -217,8 +229,9 @@ Note names look like `C4`, `Bb2`, `F#3` (letter, optional `#` or `b`, octave num
 - Pick **WATCH AI BATTLE**, then press **M** to switch tracks live (the change happens on the beat).
 - Point out the music **thinning out** when a faction dies, and the winner's instrument playing a final fanfare.
 - Show the music getting **fuller in a big battle** (and switch DYNAMIC MUSIC off to hear the difference).
-- Hover the **special nodes** and show a fortress taking twice the ships.
+- Hover the **special nodes** and show a fortress taking far more ships than a normal node.
 - Press **C** and **B** live: colour-blind mode and bloom change the whole picture at once.
 - Show the **share graph** on the game-over screen: it is the story of the match.
 - Open `config.py` and change one number (for example `SHIP_SPEED`), restart, and show the difference.
+- Switch **MATCH LENGTH** between SHORT and LONG in the title menu and watch the battle behind it change pace.
 - Test sound and fullscreen on the presentation machine **before** the class.

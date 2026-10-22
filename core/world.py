@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from config import (TICKS_PER_BEAT, MATCH_LIMIT_SECONDS, STATS_EVERY_BEATS, PLAYER, DT, SHIP_SPEED, BEAT,
+from config import (TICKS_PER_BEAT, MATCH_LIMIT_SECONDS, STATS_EVERY_BEATS, PLAYER, DT, PACE, BEAT,
                     AI_TABLE, DIFFICULTIES, NODE_RELAY, RELAY_SPEED)
 from core.ai import ai_think, Opponent
 from core.beat import beat_of, is_beat_tick, is_step_tick, step_of
@@ -118,7 +118,7 @@ class World:
         need = node.garrison * node.shield + 1                 # a fortress needs twice the ships per defender
         if node.owner != 0 and sources:
             nearest = min(math.hypot(node.x - self.nodes[s].x, node.y - self.nodes[s].y) for s in sources)
-            need += node.production * node.shield * nearest / (SHIP_SPEED * BEAT)
+            need += node.production * node.shield * nearest / (PACE["speed"] * BEAT)
         return int(math.ceil(need))
 
     def drain_events(self):
@@ -183,7 +183,9 @@ class World:
             self.events.append(("launch", owner, n))
         # 2. production: owned nodes grow by their size (neutral nodes never produce)
         for node in self.nodes:
-            if node.owner != 0 and node.garrison < node.cap:
+            if node.unrest > 0:
+                node.unrest -= 1                           # just conquered: the people there are not working for you yet
+            elif node.owner != 0 and node.garrison < node.cap:
                 node.garrison = min(node.cap, node.garrison + node.production)
         # 3. the computer opponents think (they use order(), exactly like the player)
         self._run_opponents(beat)
@@ -246,9 +248,10 @@ class World:
             node.garrison += 1
             return
         node.absorbed += 1
-        if node.shield > 1 and node.absorbed % node.shield:        # fortress: only every 2nd attacker hurts a defender,
-            self.stats.lost[owner] += 1                            # the others bounce off its walls
-            return
+        shield = node.shield                                       # attackers needed per defender (1 = one for one)
+        if shield > 1 and math.floor(node.absorbed / shield + 1e-9) == math.floor((node.absorbed - 1) / shield + 1e-9):
+            self.stats.lost[owner] += 1                            # this attacker bounces off the walls: no defender falls
+            return                                                 # (with shield 2 every 2nd attacker hurts, with 1.5 two of three)
         node.garrison -= 1
         self.stats.lost[owner] += 1
         if node.owner != 0:
@@ -258,6 +261,7 @@ class World:
             node.owner = owner
             node.garrison = abs(node.garrison)             # the ship that broke through stays as garrison
             node.absorbed = 0
+            node.unrest = PACE["unrest"]
             self.stats.captured[owner] += 1
             self.events.append(("capture", target, old, owner))
 

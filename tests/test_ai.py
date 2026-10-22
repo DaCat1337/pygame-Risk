@@ -6,6 +6,7 @@ import numpy as np
 import helpers
 from helpers import check
 from config import AI_TABLE, DIFFICULTIES, MATCH_LIMIT_SECONDS, DT
+from config import apply_pace
 from core.ai import ai_think
 from core.node import Node
 from core.world import World
@@ -17,6 +18,7 @@ def play(world, beats):
 
 
 def run():
+    apply_pace(0)                                           # the rules are tested with the original SHORT pace (the game's default is LONG)
     # --- legal orders at many moments of a real match, for every difficulty
     for d, name in enumerate(DIFFICULTIES):
         w = World(seed=4, n_factions=3, map_size=1, has_player=False)

@@ -2,6 +2,7 @@
 import helpers
 from helpers import check
 from config import MATCH_LIMIT_SECONDS, DT
+from config import apply_pace
 from core.node import Node
 from core.world import World
 
@@ -20,6 +21,7 @@ def run_ticks(world, n):
 
 
 def run():
+    apply_pace(0)                                           # the rules are tested with the original SHORT pace (the game's default is LONG)
     # --- production happens on the beat only
     w = tiny_world()
     w.tick()                                               # tick 0 is a beat tick

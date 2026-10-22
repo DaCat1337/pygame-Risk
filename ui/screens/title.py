@@ -14,7 +14,7 @@ import numpy as np
 import pygame
 
 from audio.tracks import TRACK_NAMES
-from config import SCREEN_W, SCREEN_H, MAP_NAMES, DIFFICULTIES, C_DIM, FACTION_COLORS, color_choices
+from config import SCREEN_W, SCREEN_H, MAP_NAMES, DIFFICULTIES, C_DIM, FACTION_COLORS, PACE_NAMES, color_choices
 from core.beat import beat_phase
 from core.world import World
 from graphics.glow import dim
@@ -35,6 +35,7 @@ class TitleScreen:
                  choice("OPPONENTS", "opponents", ("1", "2", "3"), first=1),
                  choice("DIFFICULTY", "difficulty", DIFFICULTIES),
                  choice("MAP", "map_size", MAP_NAMES),
+                 choice("MATCH LENGTH", "pace", PACE_NAMES),
                  choice("MUSIC", "music_track", TRACK_NAMES + ["SHUFFLE"]),
                  choice("YOUR COLOUR", "player_color", lambda: [name for _, name in color_choices(game.settings["colorblind"])],
                         swatch=lambda i: color_choices(game.settings["colorblind"])[i][0]),
