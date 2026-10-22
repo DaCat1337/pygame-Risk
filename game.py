@@ -14,7 +14,7 @@ import time
 import pygame
 
 from audio.conductor import Conductor
-from config import FPS_TARGET, DT, MAX_TICKS_PER_FRAME, COUNTDOWN_BEATS, SEND_FRACTIONS, SCREEN_W, SCREEN_H, FADE_SECONDS
+from config import apply_palette, FPS_TARGET, DT, MAX_TICKS_PER_FRAME, COUNTDOWN_BEATS, SEND_FRACTIONS, SCREEN_W, SCREEN_H, FADE_SECONDS
 from core.world import World
 from graphics.fonts import Fonts
 from graphics.screen import save_screenshot, toggle_fullscreen
@@ -33,6 +33,7 @@ class Game:
         self.settings_path = settings_path
         self.shots_dir = shots_dir
         self.settings = load_settings(settings_path)
+        apply_palette(self.settings["colorblind"], self.settings["player_color"])           # before the screens are built, so they start with the right colours
         self.fonts = Fonts()
         self.clock = pygame.time.Clock()
         self.running = True
@@ -169,6 +170,8 @@ class Game:
         self.music.setting_changed(key)
         if key == "music_track":
             self.toast_if_building()
+        elif key in ("colorblind", "player_color"):
+            self.apply_palette()
 
     def toast_if_building(self):
         """A track that was never played yet is synthesised in the background (a few seconds): say so."""
@@ -208,6 +211,18 @@ class Game:
 
     def toggle_hints(self):
         self.settings["hints"] = not self.settings["hints"]
+
+    def apply_palette(self):
+        """Colour-blind mode on / off: change the faction colours and repaint what remembers them."""
+        apply_palette(self.settings["colorblind"], self.settings["player_color"])
+        self.play.view.palette_changed(self.play.world)
+        self.title.view.palette_changed(self.title.world)
+        self.title._title_images = None                       # the big title text is cyan = faction 1's colour: draw it again
+
+    def toggle_colorblind(self):
+        """C: colour-blind mode (a palette that stays readable with colour blindness, plus a symbol per faction)."""
+        self.set_setting("colorblind", not self.settings["colorblind"])
+        self.toast("Colour-blind mode " + ("on" if self.settings["colorblind"] else "off"), 1.2)
 
     def toggle_bloom(self):
         """B: glow (bloom) around nodes, ships and flashes on / off. Everything else keeps its look."""

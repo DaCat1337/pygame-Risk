@@ -8,15 +8,15 @@ Used by         : core/world.py (calls it on the beats; the orders go through wo
                  very same function the player uses - the AI never cheats).
 
 Each order is a tuple (source_node, target_node, fraction_of_garrison_to_send).
-The numbers that make EASY / NORMAL / HARD different live in config.AI_TABLE.
+The numbers that make EASY / NORMAL / HARD / EXTREME different live in config.AI_TABLE.
 """
 import math
 from dataclasses import dataclass
 
 import numpy as np
 
-from config import (AI_TABLE, DIFFICULTIES, AI_PLAYER_BIAS_HARD, AI_SURPLUS, AI_SURPLUS_FLAT, SHIP_SPEED, BEAT,
-                    PLAYER, NEUTRAL)
+from config import (AI_TABLE, DIFFICULTIES, AI_PLAYER_BIAS_EXTREME, AI_SURPLUS, AI_SURPLUS_FLAT, SHIP_SPEED, BEAT,
+                    PLAYER, NEUTRAL, NODE_FACTORY)
 
 SPEED_PER_BEAT = SHIP_SPEED * BEAT        # pixels a ship flies in one beat
 
@@ -96,7 +96,7 @@ def ai_think(world, faction, difficulty, rng):
             left[i] -= amount
             orders.append((i, target, fraction))
 
-    # 2. Defend (NORMAL / HARD): if more enemy ships are flying at one of our nodes than it can
+    # 2. Defend (NORMAL and up): if more enemy ships are flying at one of our nodes than it can
     #    hold (garrison + what it produces until they arrive), help from the nearest other node first.
     attackers = set()                                                  # factions that are flying ships at us
     for i in own:
@@ -116,7 +116,7 @@ def ai_think(world, faction, difficulty, rng):
                     missions += 1
 
     # 3. Score every node we do not own: big, cheap and close targets look best.
-    weakest = {}                                                       # HARD: the weakest node of each attacker
+    weakest = {}                                                       # EXTREME: the weakest node of each attacker
     if cfg["counter"]:
         for f in attackers:
             theirs_nodes = world.owned(f)
@@ -128,15 +128,16 @@ def ai_think(world, faction, difficulty, rng):
             continue
         nearest_own = min(own, key=lambda j: _dist(nodes[j], node))
         distance = _dist(nodes[nearest_own], node)
-        needed = node.garrison - mine[t]                               # what we already sent counts
+        needed = node.garrison * node.shield - mine[t]                 # what we already sent counts (a fortress: x2 per defender)
         if node.owner != NEUTRAL:
-            needed += float(theirs[t][node.owner]) + node.production * distance / SPEED_PER_BEAT   # defender's help + its production
+            needed += (float(theirs[t][node.owner]) + node.production * distance / SPEED_PER_BEAT) * node.shield   # defender's help + its production
         if mine[t] > 0 and needed <= 0:
             continue                                                   # enough ships are already on the way
         needed = max(needed, 1.0)
-        score = (node.size * 3 + (8 if node.owner == NEUTRAL else 4)) / (needed + 4 + distance / 90)
+        value = node.size * 3 + (8 if node.owner == NEUTRAL else 4) + (4 if node.kind == NODE_FACTORY else 0)   # factories are worth more
+        score = value / (needed + 4 + distance / 90)
         if cfg["counter"] and world.has_player and node.owner == PLAYER:
-            score *= AI_PLAYER_BIAS_HARD
+            score *= AI_PLAYER_BIAS_EXTREME
         score *= weakest.get(t, 1.0)
         candidates.append((score + rng.uniform(0, 1e-6), t, needed))   # the tiny random number only breaks ties
     candidates.sort(reverse=True)

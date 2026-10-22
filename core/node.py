@@ -6,10 +6,14 @@ Used by         : core/mapgen.py (creates them), core/world.py, core/ai.py, grap
 
 A @dataclass is Python writing the boring __init__ for us: list the fields and you can
 write Node(x=10, y=20, ...).
+
+Special kinds (config.KIND_NAMES): a NORMAL node is the plain circle. A FORTRESS is hard to take (its
+defenders count double), a FACTORY makes twice the ships, a RELAY launches faster ships.
 """
 from dataclasses import dataclass
 
-from config import NODE_RADIUS, CAP_PER_SIZE
+from config import (NODE_RADIUS, CAP_PER_SIZE, NODE_NORMAL, NODE_FORTRESS, NODE_FACTORY, FORTRESS_SHIELD,
+                    FACTORY_BOOST)
 
 
 @dataclass
@@ -21,6 +25,8 @@ class Node:
     garrison: float = 0.0      # ships stationed here (shown as a whole number)
     radius: int = 0
     cap: int = 0               # production stops when the garrison reaches this
+    kind: int = NODE_NORMAL    # NODE_NORMAL / NODE_FORTRESS / NODE_FACTORY / NODE_RELAY (config.py)
+    absorbed: int = 0          # fortress only: how many attackers have landed (every 2nd one hurts a defender)
 
     def __post_init__(self):
         # Fill radius and cap from the size unless the caller gave them.
@@ -31,5 +37,10 @@ class Node:
 
     @property
     def production(self):
-        """Ships made per beat: 1, 2 or 3. Neutral nodes make none (checked by the World)."""
-        return self.size
+        """Ships made per beat: 1, 2 or 3 (doubled for a factory). Neutral nodes make none (checked by the World)."""
+        return self.size * (FACTORY_BOOST if self.kind == NODE_FACTORY else 1)
+
+    @property
+    def shield(self):
+        """How many attacking ships it takes to remove ONE defender: 2 in a fortress, otherwise 1."""
+        return FORTRESS_SHIELD if self.kind == NODE_FORTRESS else 1

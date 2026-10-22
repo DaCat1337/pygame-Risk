@@ -23,11 +23,11 @@ def run():
     check(_load_text("[1, 2, 3]") == DEFAULT_SETTINGS, "JSON that is not an object = defaults")
     check(_load_text("") == DEFAULT_SETTINGS, "empty file = defaults")
 
-    bad_types = {"music_on": "yes", "music_vol": "loud", "music_track": "2", "sfx_on": 1, "sfx_vol": None,
-                 "hints": [], "bloom": 1, "scaling": 1.5, "opponents": True, "difficulty": {}, "map_size": "big", "send_fraction": None}
+    bad_types = {"music_on": "yes", "music_vol": "loud", "dynamic_music": "no", "player_color": "red", "music_track": "2", "sfx_on": 1, "sfx_vol": None,
+                 "hints": [], "bloom": 1, "colorblind": "yes", "scaling": 1.5, "opponents": True, "difficulty": {}, "map_size": "big", "send_fraction": None}
     check(_load_text(json.dumps(bad_types)) == DEFAULT_SETTINGS, "wrong types = defaults")
 
-    out_of_range = {"music_track": 5, "scaling": 3, "opponents": 0, "difficulty": -1, "map_size": 3, "send_fraction": 4}
+    out_of_range = {"music_track": 5, "scaling": 3, "opponents": 0, "difficulty": 4, "player_color": 4, "map_size": 3, "send_fraction": 4}
     check(_load_text(json.dumps(out_of_range)) == DEFAULT_SETTINGS, "out-of-range whole numbers = defaults")
     check(_load_text(json.dumps({"music_track": -1}))["music_track"] == 0, "music_track -1 = default")
     check(_load_text(json.dumps({"music_track": 4}))["music_track"] == 4, "music_track 4 (SHUFFLE) is valid")
@@ -35,11 +35,12 @@ def run():
     loud = _load_text(json.dumps({"music_vol": 7, "sfx_vol": -3}))
     check(loud["music_vol"] == 1.0 and loud["sfx_vol"] == 0.0, "volumes are clamped to 0..1")
 
-    good = {"music_on": False, "music_vol": 0.2, "music_track": 3, "sfx_on": False, "sfx_vol": 0.9, "hints": False, "bloom": False,
+    good = {"music_on": False, "music_vol": 0.2, "music_track": 3, "sfx_on": False, "sfx_vol": 0.9, "hints": False, "bloom": False, "colorblind": True, "dynamic_music": False, "player_color": 2,
             "scaling": 2, "opponents": 3, "difficulty": 2, "map_size": 0, "send_fraction": 3}
     check(_load_text(json.dumps(good)) == good, "valid settings are kept exactly")
     check(_load_text(json.dumps({"music_vol": 0.3, "extra": 1}))["music_vol"] == 0.3, "unknown keys are ignored")
     check(_load_text(json.dumps({"music_vol": 0.3}))["bloom"] is True, "a settings file from before the bloom option gets bloom on")
+    check(_load_text(json.dumps({"music_vol": 0.3}))["colorblind"] is False, "colour-blind mode is off unless the file says so")
 
     with tempfile.TemporaryDirectory() as folder:
         path = os.path.join(folder, "s.json")

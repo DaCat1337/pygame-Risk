@@ -1,14 +1,17 @@
 {
   "music_on": true,
-  "music_vol": 0.68,
-  "music_track": 4,
+  "music_vol": 0.82,
+  "music_track": 1,
+  "dynamic_music": true,
   "sfx_on": true,
-  "sfx_vol": 0.44,
+  "sfx_vol": 0.69,
   "hints": true,
   "bloom": true,
+  "colorblind": false,
+  "player_color": 1,
   "scaling": 0,
-  "opponents": 2,
-  "difficulty": 1,
-  "map_size": 1,
+  "opponents": 3,
+  "difficulty": 2,
+  "map_size": 2,
   "send_fraction": 2
 }

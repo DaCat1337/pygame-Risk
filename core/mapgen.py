@@ -10,6 +10,8 @@ Fairness:
     (point symmetry, like a playing card). Both players get the very same neighbourhood.
   * 3-4 factions: the start nodes sit evenly spaced on an ellipse; the rest is scattered.
 
+Some neutral nodes are special (FORTRESS / FACTORY / RELAY, see _assign_kinds).
+
 Rejection sampling = "throw a dart at a random spot; if it overlaps something, throw again".
 """
 import math
@@ -17,7 +19,7 @@ import math
 import numpy as np
 
 from config import (SCREEN_W, SCREEN_H, MARGIN, HUD_TOP, MIN_NODE_GAP, MAP_NODES, SIZE_MIX, NODE_RADIUS,
-                    START_SIZE, START_GARRISON, NEUTRAL_GARRISON_PER_SIZE, MAPGEN_MAX_TRIES)
+                    START_SIZE, START_GARRISON, NEUTRAL_GARRISON_PER_SIZE, MAPGEN_MAX_TRIES, KIND_MIX)
 from core.node import Node
 
 # The rectangle the node CENTRES may move in is computed per node (it shrinks by the radius).
@@ -115,6 +117,23 @@ def _try_many_factions(rng, total, n_factions):
     return nodes
 
 
+def _assign_kinds(nodes, n_factions, seed):
+    """Make some neutral nodes FORTRESS / FACTORY / RELAY (config.KIND_MIX). Start nodes stay plain.
+
+    Fair: on a 2-faction map the mirrored twin gets the same kind. The dice are separate from the layout dice,
+    so a seed gives the very same node positions, sizes and garrisons as before - only the kinds are added on top.
+    """
+    rng = np.random.default_rng(seed + 31337)
+    chances = [1.0 - sum(KIND_MIX), *KIND_MIX]
+    neutrals = [i for i, n in enumerate(nodes) if n.owner == 0]
+    if n_factions == 2:                                  # the list holds each node followed by its mirrored twin
+        for a, b in zip(neutrals[::2], neutrals[1::2]):
+            nodes[a].kind = nodes[b].kind = int(rng.choice(4, p=chances))
+    else:
+        for i in neutrals:
+            nodes[i].kind = int(rng.choice(4, p=chances))
+
+
 def generate_map(seed, n_factions, map_size):
     """Build the node list. n_factions counts the player too (2..4); map_size is 0/1/2."""
     total = MAP_NODES[map_size]
@@ -128,5 +147,6 @@ def generate_map(seed, n_factions, map_size):
         else:
             nodes = _try_many_factions(rng, total, n_factions)
         if nodes is not None:
+            _assign_kinds(nodes, n_factions, attempt_seed)
             return nodes
         attempt_seed += 1000                     # unlucky layout: retry with a different seed

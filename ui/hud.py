@@ -6,8 +6,9 @@ Used by         : ui/screens/play.py.
 """
 import pygame
 
-from config import SCREEN_W, SCREEN_H, FACTION_COLORS, FACTION_NAMES, COLOR_NAMES, SEND_FRACTIONS, C_TEXT, C_DIM, PLAYER
+from config import SCREEN_W, SCREEN_H, FACTION_COLORS, FACTION_NAMES, FACTION_SHAPES, COLOR_NAMES, SEND_FRACTIONS, C_TEXT, C_DIM, PLAYER
 from core.beat import beat_of, beat_phase
+from graphics.shapes import draw_shape
 
 HINT_TEXT = "Drag from your node to send   |   Wheel / 1-4 = send %   |   Space = all nodes   |   M = music   |   Esc = menu"
 BAR_HEIGHT = 10
@@ -26,7 +27,7 @@ def draw_power_bar(surf, world):
         x += width
 
 
-def draw_hud(surf, world, fonts, track_name, send_index, hints):
+def draw_hud(surf, world, fonts, track_name, send_index, hints, shapes=False):
     draw_power_bar(surf, world)
     # left: time and track name
     fonts.draw(surf, fonts.hud, format_time(world.seconds), C_TEXT, (36, 30))
@@ -35,9 +36,11 @@ def draw_hud(surf, world, fonts, track_name, send_index, hints):
     # centre: ship counts per faction, in their colours
     totals = world.ship_totals()
     labels = FACTION_NAMES if world.has_player else COLOR_NAMES
-    names = [(labels[f], int(totals[f]), FACTION_COLORS[f]) for f in world.factions() if f not in world.eliminated]
+    names = [(labels[f], int(totals[f]), FACTION_COLORS[f], f) for f in world.factions() if f not in world.eliminated]
     x = SCREEN_W // 2 - 110 * len(names)
-    for name, count, color in names:
+    for name, count, color, faction in names:
+        if shapes:                                                     # colour-blind mode: the faction's symbol beside its name
+            draw_shape(surf, FACTION_SHAPES[faction], (x - 16, 44), 6, color)
         fonts.draw(surf, fonts.small, name, color, (x, 28))
         fonts.draw(surf, fonts.hud, str(count), color, (x, 48))
         x += 220

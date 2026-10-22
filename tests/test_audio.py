@@ -13,8 +13,8 @@ from helpers import check
 import pygame
 
 from config import BEAT
-from audio.music import build_track, LOOP_SECONDS
-from audio.player import Audio, rotated_music, BEAT_SAMPLES
+from audio.music import build_track, build_energy, LOOP_SECONDS, ENERGY_PEAK
+from audio.player import Audio, rotated_music, BEAT_SAMPLES, BASE_DIP, ENERGY_RISE
 from audio.sfx import build_sfx
 from audio.synth import SR, note_hz
 from audio.tracks import TRACKS, TRACK_NAMES
@@ -104,6 +104,19 @@ def run():
     rot = rotated_music(loop, 5)
     check(np.array_equal(rot[-1], loop[5 * BEAT_SAMPLES - 1]), "the rotated copy ends where it started (seamless)")
 
+    # --- the energy layer: same shape as the loop, a loop of its own, not too loud, not the same as the base
+    for track in TRACKS:
+        base, energy = build_track(track), build_energy(track)
+        check(energy.shape == base.shape and energy.dtype == np.int16, f"{track['name']}: energy layer has the loop's shape")
+        peak = np.abs(energy).max() / 32767
+        check(abs(peak - ENERGY_PEAK) < 0.01, f"{track['name']}: energy layer peaks at {ENERGY_PEAK} ({peak:.3f})")
+        check(not np.array_equal(energy, base), f"{track['name']}: energy layer is different from the base")
+        both = np.abs(base.astype(int) + energy.astype(int)).max() / 32767
+        check(both < 0.95, f"{track['name']}: base + full energy never clips ({both:.2f})")
+        step = np.abs(np.diff(energy.astype(int), axis=0)).mean()
+        edge = np.abs(energy[0].astype(int) - energy[-1].astype(int)).max()
+        check(edge < 4000 and step > 0, f"{track['name']}: energy loop edge is no big jump ({edge})")
+
     # --- the launch sounds are gentle (the owner found them harsh): almost no energy above 1 kHz, no sharp start
     sfx = build_sfx()
     for name in ("whoosh", "send"):
@@ -169,11 +182,52 @@ def run():
         check(pygame.mixer.Channel(0).get_volume() < 0.1, "a fading-in track starts quiet")
         time.sleep(0.25)
         audio.update()
-        want = audio._curve(0.5)
+        want = audio._curve(0.5) * (1 - BASE_DIP)             # (quiet match: the base loop is a little lower)
         check(abs(pygame.mixer.Channel(0).get_volume() - want) < 0.02, f"after the fade-in the music sits at the slider volume ({want:.2f})")
         time.sleep(0.2)
         audio.update()
         check(abs(pygame.mixer.Channel(0).get_volume() - want) < 0.02, "and it stays there")
+
+        # --- dynamic intensity: the energy layer plays on channel 1, silent when quiet, full volume in a big battle
+        check(pygame.mixer.Channel(1).get_busy() and pygame.mixer.Channel(1).get_volume() < 0.01, "the energy layer runs, silent at intensity 0")
+        audio.set_intensity(1.0)
+        audio.update(dt=0.0)
+        check(audio.energy == 0.0, "no time passed: the intensity has not moved yet")
+        audio.update(dt=ENERGY_RISE)
+        check(0.5 < audio.energy < 0.7, f"after one time constant ({ENERGY_RISE} s) it is ~63% of the way ({audio.energy:.2f})")
+        slow = audio.energy
+        audio.update(dt=60.0)
+        full = audio._curve(0.5)
+        check(audio.energy == 1.0 and abs(pygame.mixer.Channel(1).get_volume() - full) < 0.02, "later: full intensity = the energy layer at the slider volume")
+        check(abs(pygame.mixer.Channel(0).get_volume() - full) < 0.02, "and the base loop is back at full volume too")
+        audio.set_intensity(0.0)
+        audio.update(dt=ENERGY_RISE)
+        check(1.0 - audio.energy < slow, f"falling is slower than rising (in the same time it falls {1 - audio.energy:.2f}, it rose {slow:.2f})")
+        audio.set_intensity(7)
+        check(audio.energy_target == 1.0, "intensity is clamped to 0..1")
+        audio.set_intensity(0.0)
+        audio.update(dt=60.0)
+        check(audio.energy == 0.0 and pygame.mixer.Channel(1).get_volume() < 0.01, "back to quiet: the energy layer is silent again")
+        # the DYNAMIC MUSIC switch: off = no energy layer at all, and the base loop is not dipped
+        audio.set_intensity(1.0)
+        audio.update(dt=60.0)
+        audio.set_dynamic(False)
+        check(audio.energy == 0.0 and pygame.mixer.Channel(1).get_volume() < 0.01, "dynamic music off: the energy layer is silent at once")
+        check(abs(pygame.mixer.Channel(0).get_volume() - audio._curve(0.5)) < 0.02, "...and the base loop plays at full volume (no quiet-moment dip)")
+        audio.set_intensity(1.0)
+        audio.update(dt=60.0)
+        check(audio.energy == 0.0 and audio.energy_target == 0.0, "...and the intensity is ignored while it is off")
+        audio.set_dynamic(True)
+        audio.set_intensity(0.0)
+        audio.update(dt=60.0)
+        check(abs(pygame.mixer.Channel(0).get_volume() - audio._curve(0.5) * (1 - BASE_DIP)) < 0.02, "switched on again: the quiet-moment dip is back")
+        audio.duck(0.5, 0.4)
+        audio.set_intensity(1.0)
+        audio.update(dt=60.0)
+        check(pygame.mixer.Channel(1).get_volume() < audio._curve(0.5) * 0.9, "ducking lowers the energy layer too")
+        audio._duck = None
+        audio.set_intensity(0.0)
+        audio.update(dt=60.0)
         for _ in range(40):                                  # the 12-per-second limit must not crash
             audio.play("zap")
         pygame.mixer.quit()

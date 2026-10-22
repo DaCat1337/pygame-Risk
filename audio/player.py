@@ -10,7 +10,12 @@ Used by         : game.py, main.py, tests.
 The rotated-copy trick: a pygame Sound can only start at its FIRST sample. To start the music at
 beat 20 we make a copy of the loop rotated with np.roll so that its first sample is where
 beat 20 begins. Played on a loop, it carries on seamlessly because the loop is seamless.
+
+Dynamic intensity: every track has a second loop, the "energy layer" (audio/music.py build_energy). It plays on
+channel 1, started together with the base loop on channel 0, and only its VOLUME changes: the conductor says how
+busy the match is (set_intensity 0..1) and the layer fades in and out smoothly.
 """
+import math
 import threading
 import time
 import traceback
@@ -20,13 +25,16 @@ import numpy as np
 import pygame
 
 from config import BEAT, LOOP_BEATS
-from audio.music import build_track
+from audio.music import build_track, build_energy
 from audio.sfx import build_sfx
 from audio.synth import SR
 from audio.tracks import TRACKS
 from audio.voices import build_voices
 
 BEAT_SAMPLES = int(BEAT * SR)          # 11025 samples per beat
+ENERGY_RISE = 2.0                      # seconds the intensity takes to rise (a time constant: ~63% of the way)
+ENERGY_FALL = 4.0                      # ...and to fall (slower, so the music does not flicker between beats)
+BASE_DIP = 0.15                        # in a quiet moment the base loop is this much quieter (a thinner sound)
 
 
 def rotated_music(loop, beat):
@@ -45,6 +53,11 @@ class Audio:
         self.music_vol, self.sfx_vol = 0.5, 0.7
         self.sfx = {}
         self.loops = {}                    # track id -> int16 loop array (finished building)
+        self.energy_loops = {}             # track id -> int16 energy-layer array (built together with the loop)
+        self.dynamic_on = True             # the DYNAMIC MUSIC switch: off = the energy layer stays silent, the base loop stays at full volume
+        self.energy, self.energy_target = 0.0, 0.0     # how much of the energy layer is mixed in now / should be (0..1)
+        self._rotated_energy = None        # like _rotated, for the energy layer
+        self._last_update = None
         self.voice_sets = {}               # track id -> {key: pygame Sound}
         self.voice_track = None            # which voice set is used right now
         self.playing_track = None
@@ -63,7 +76,7 @@ class Audio:
                 pygame.mixer.quit()                  # our buffers assume 22050 Hz stereo, so reopen it
             pygame.mixer.init(frequency=SR, size=-16, channels=2, buffer=512, allowedchanges=0)
             pygame.mixer.set_num_channels(32)
-            pygame.mixer.set_reserved(1)             # channel 0 is kept for the music
+            pygame.mixer.set_reserved(2)             # channel 0 = music, channel 1 = its energy layer
         except (pygame.error, NotImplementedError):
             return
         self.available = True
@@ -92,9 +105,11 @@ class Audio:
         try:
             track = TRACKS[track_id]
             loop = build_track(track)
+            energy = build_energy(track)
             sounds = {key: pygame.mixer.Sound(buffer=arr.tobytes()) for key, arr in build_voices(track).items()}
             with self._lock:
                 self.voice_sets[track_id] = sounds
+                self.energy_loops[track_id] = energy
                 self.loops[track_id] = loop                # the loop is published last: "ready" means both are there
         except Exception:
             traceback.print_exc()                          # a failed build just means no music for this track (but say why)
@@ -120,6 +135,11 @@ class Audio:
         if self._rotated is None or self._rotated[0] != key:
             sound = pygame.mixer.Sound(buffer=rotated_music(self.loops[track_id], beat).tobytes())
             self._rotated = (key, sound)                   # cached: switching back to the same spot is free
+        energy_key = (track_id, beat % LOOP_BEATS, "energy")
+        if self._rotated_energy is None or self._rotated_energy[0] != energy_key:
+            energy_sound = pygame.mixer.Sound(buffer=rotated_music(self.energy_loops[track_id], beat).tobytes())
+            self._rotated_energy = (energy_key, energy_sound)
+        pygame.mixer.Channel(1).play(self._rotated_energy[1], loops=-1)    # started right next to the base loop: they stay in step
         channel = pygame.mixer.Channel(0)
         channel.play(self._rotated[1], loops=-1)           # (NOT fade_ms=...: pygame's own fade-in resets the channel to
         self._fade_in = (time.monotonic(), fade_ms / 1000) if fade_ms else None     # full volume when it ends. We fade ourselves.)
@@ -132,8 +152,10 @@ class Audio:
         if self.available:
             if fade_ms:
                 pygame.mixer.Channel(0).fadeout(fade_ms)
+                pygame.mixer.Channel(1).fadeout(fade_ms)
             else:
                 pygame.mixer.Channel(0).stop()
+                pygame.mixer.Channel(1).stop()
         self.playing_track = None
 
     def music_playing(self):
@@ -158,16 +180,45 @@ class Audio:
         t0, length = self._fade_in
         return min(1.0, (time.monotonic() - t0) / length)
 
-    def _apply_music_volume(self):
-        """The music channel's volume = slider curve x ducking x fade-in. Every volume change goes through here."""
-        if self.available:
-            pygame.mixer.Channel(0).set_volume(self._curve(self.music_vol) * self.duck_factor() * self.fade_in_factor())
+    def set_dynamic(self, on):
+        """Switch the dynamic energy layer on / off. Off is immediate and the base loop is then at its full volume."""
+        self.dynamic_on = bool(on)
+        if not self.dynamic_on:
+            self.energy = self.energy_target = 0.0
+        if self.playing_track is not None:
+            self._apply_music_volume()
 
-    def update(self):
-        """Call once per frame: applies the ducking curve and the fade-in to the music channel."""
-        if (self._duck is None and self._fade_in is None) or not self.available:
+    def set_intensity(self, level):
+        """How busy the match is, 0 (quiet) .. 1 (a big battle). The energy layer eases towards it (see update).
+        Ignored while DYNAMIC MUSIC is switched off."""
+        self.energy_target = max(0.0, min(1.0, float(level))) if self.dynamic_on else 0.0
+
+    def _apply_music_volume(self):
+        """Volumes = slider curve x ducking x fade-in; the base loop dips a little when it is quiet, the energy layer
+        follows the intensity. Every volume change goes through here."""
+        if self.available:
+            level = self._curve(self.music_vol) * self.duck_factor() * self.fade_in_factor()
+            dip = BASE_DIP * (1.0 - self.energy) if self.dynamic_on else 0.0
+            pygame.mixer.Channel(0).set_volume(level * (1.0 - dip))
+            pygame.mixer.Channel(1).set_volume(level * self.energy)
+
+    def update(self, dt=None):
+        """Call once per frame: eases the intensity and applies ducking, fade-in and intensity to the music channels.
+        (dt = seconds since the last call; measured by itself when left out.)"""
+        if not self.available:
             return
-        if self.music_on and self.playing_track is not None:
+        now = time.monotonic()
+        if dt is None:
+            dt = 0.0 if self._last_update is None else min(0.25, now - self._last_update)
+        self._last_update = now
+        before = self.energy
+        if self.energy != self.energy_target:                     # ease: move a fraction of the way each frame
+            tau = ENERGY_RISE if self.energy_target > self.energy else ENERGY_FALL
+            self.energy += (self.energy_target - self.energy) * (1.0 - math.exp(-dt / tau))
+            if abs(self.energy - self.energy_target) < 0.003:
+                self.energy = self.energy_target
+        busy = self._duck is not None or self._fade_in is not None or self.energy != before
+        if busy and self.music_on and self.playing_track is not None:
             self._apply_music_volume()
         if self._duck is not None and self.duck_factor() >= 1.0:
             self._duck = None

@@ -21,7 +21,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from config import (TICKS_PER_BEAT, MATCH_LIMIT_SECONDS, STATS_EVERY_BEATS, PLAYER, DT, SHIP_SPEED, BEAT,
-                    AI_TABLE, DIFFICULTIES)
+                    AI_TABLE, DIFFICULTIES, NODE_RELAY, RELAY_SPEED)
 from core.ai import ai_think, Opponent
 from core.beat import beat_of, is_beat_tick, is_step_tick, step_of
 from core.combat import resolve_clashes
@@ -115,10 +115,10 @@ class World:
         """Rough number of ships needed to take `target`: its garrison + 1, plus what an ENEMY node
         produces while our ships are flying there (only neutral nodes stand still). Shown as "needs ~N"."""
         node = self.nodes[target]
-        need = node.garrison + 1
+        need = node.garrison * node.shield + 1                 # a fortress needs twice the ships per defender
         if node.owner != 0 and sources:
             nearest = min(math.hypot(node.x - self.nodes[s].x, node.y - self.nodes[s].y) for s in sources)
-            need += node.production * nearest / (SHIP_SPEED * BEAT)
+            need += node.production * node.shield * nearest / (SHIP_SPEED * BEAT)
         return int(math.ceil(need))
 
     def drain_events(self):
@@ -220,7 +220,8 @@ class World:
         for batch in self.launching:
             k = min(batch.per_tick, batch.left)
             source, target = self.nodes[batch.source], self.nodes[batch.target]
-            made = self.ships.launch(batch.owner, source, batch.target, target, k, self.rng)
+            speed = RELAY_SPEED if source.kind == NODE_RELAY else 1.0        # a relay's ships fly faster
+            made = self.ships.launch(batch.owner, source, batch.target, target, k, self.rng, speed)
             if made < k and source.owner == batch.owner:
                 source.garrison += k - made                # flight cap reached: give the rest back
             batch.left -= k
@@ -244,6 +245,10 @@ class World:
         if node.owner == owner:
             node.garrison += 1
             return
+        node.absorbed += 1
+        if node.shield > 1 and node.absorbed % node.shield:        # fortress: only every 2nd attacker hurts a defender,
+            self.stats.lost[owner] += 1                            # the others bounce off its walls
+            return
         node.garrison -= 1
         self.stats.lost[owner] += 1
         if node.owner != 0:
@@ -252,6 +257,7 @@ class World:
             old = node.owner
             node.owner = owner
             node.garrison = abs(node.garrison)             # the ship that broke through stays as garrison
+            node.absorbed = 0
             self.stats.captured[owner] += 1
             self.events.append(("capture", target, old, owner))
 

@@ -7,8 +7,9 @@ Used by         : game.py (an overlay on top of the frozen match).
 """
 import pygame
 
-from config import SCREEN_W, FACTION_COLORS, FACTION_NAMES, COLOR_NAMES, PLAYER, C_TEXT, C_DIM, MAP_NAMES, DT
+from config import SCREEN_W, FACTION_COLORS, FACTION_NAMES, FACTION_SHAPES, COLOR_NAMES, PLAYER, C_TEXT, C_DIM, MAP_NAMES, DT
 from graphics.glow import dim
+from graphics.shapes import draw_shape
 from ui.hud import format_time
 
 GRAPH = pygame.Rect(360, 290, 1200, 300)
@@ -94,6 +95,8 @@ class GameOverScreen:
             color = FACTION_COLORS[faction]
             name = (FACTION_NAMES if self.world.has_player else COLOR_NAMES)[faction]
             name += "  (eliminated)" if faction in self.world.eliminated else ""
+            if self.game.settings["colorblind"]:                      # the faction's symbol before its name
+                draw_shape(surf, FACTION_SHAPES[faction], (columns[0][1] - 26, y), 8, color)
             fonts.draw(surf, fonts.hud, name, color, (columns[0][1], y), "midleft")
             for value, (_, x) in zip((stats.captured[faction], stats.launched[faction], stats.lost[faction],
                                       stats.peak_nodes[faction]), columns[1:]):

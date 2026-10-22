@@ -22,7 +22,7 @@ if HERE not in sys.path:
 
 import numpy as np  # noqa: E402
 
-from audio.music import build_track  # noqa: E402
+from audio.music import build_track, build_energy  # noqa: E402
 from audio.sfx import build_sfx  # noqa: E402
 from audio.synth import SR  # noqa: E402
 from audio.tracks import TRACKS  # noqa: E402
@@ -58,7 +58,8 @@ def main():
     for track in TRACKS:
         print(f"track {track['name']} ...")
         write_wav(os.path.join(args.out, "tracks", f"{track['name']}.wav"), build_track(track))
-        count += 1
+        write_wav(os.path.join(args.out, "tracks", f"{track['name']}_energy.wav"), build_energy(track))   # the busy-match layer
+        count += 2
         if not args.quick:
             for key, arr in build_voices(track).items():
                 write_wav(os.path.join(args.out, "voices", track["name"], voice_filename(key)), arr)

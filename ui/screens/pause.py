@@ -21,10 +21,12 @@ class PauseScreen:
         items += [toggle("MUSIC", "music_on"),
                   choice("MUSIC TRACK", "music_track", TRACK_NAMES + ["SHUFFLE"]),
                   slider("MUSIC VOLUME", "music_vol"),
+                  toggle("DYNAMIC MUSIC", "dynamic_music"),
                   toggle("SOUND EFFECTS", "sfx_on"),
                   slider("EFFECTS VOLUME", "sfx_vol"),
                   toggle("HINTS", "hints"),
                   toggle("BLOOM (GLOW)", "bloom"),
+                  toggle("COLOUR-BLIND MODE", "colorblind"),
                   choice("SCREEN SCALING (restart)", "scaling", SCALINGS),
                   action("FULLSCREEN", "fullscreen")]
         if from_title:

@@ -21,7 +21,7 @@ import pygame
 from config import PLAYER, SELECT_PAD
 
 KEY_ACTIONS = {pygame.K_m: "music_next", pygame.K_p: "pause", pygame.K_ESCAPE: "menu", pygame.K_F1: "help",
-               pygame.K_h: "hints", pygame.K_b: "bloom"}
+               pygame.K_h: "hints", pygame.K_b: "bloom", pygame.K_c: "colorblind"}
 FRACTION_KEYS = {pygame.K_1: 0, pygame.K_2: 1, pygame.K_3: 2, pygame.K_4: 3,
                  pygame.K_KP1: 0, pygame.K_KP2: 1, pygame.K_KP3: 2, pygame.K_KP4: 3}
 

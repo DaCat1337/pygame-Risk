@@ -15,7 +15,7 @@ import helpers  # noqa: E402  (must come first: sets the dummy SDL drivers and s
 
 # Test files, in the order they are run. Missing files are skipped, so early phases work too.
 TEST_FILES = ["test_beat", "test_mapgen", "test_world", "test_combat", "test_ai", "test_audio",
-              "test_settings", "test_game", "test_visuals", "test_perf"]
+              "test_settings", "test_nodes", "test_colors", "test_game", "test_visuals", "test_perf"]
 
 
 def main():

@@ -14,8 +14,57 @@ Continue with: "Read PLAN.md and PROGRESS.md, continue".
 | after v1: bloom fix + option | done | `game4 phase6 fix1` | 315 checks |
 | after v1: smooth territory glow | done | `game4 phase6 fix2` | 319 checks |
 | after v1: softer launch sounds | done | `game4 phase6 fix3` | 323 checks |
+| finished v2 (slogan removed from title, README and help) | done | `game4 finished v2` (everything incl. settings.json) | 323 checks |
+| v3 idea 1: node types | done | `game4 phase6 fix4` | 345 checks |
+| v3 idea 2: dynamic music intensity | done | `game4 phase6 fix5` | 379 checks |
+| v3 idea 3: colour-blind mode | done | `game4 phase6 fix6` | 403 checks |
+| v3 feedback: calmer dynamic music + DYNAMIC MUSIC toggle, new TOUGH difficulty | done | `game4 phase6 fix7` | 414 checks |
+| v3 feedback: difficulties renamed, YOUR COLOUR choice | done | `game4 phase6 fix8` | 449 checks |
 
 **Checkpoint C reached (everything in the plan is built). Next: the owner's final run-through; after that code freeze (fixes only).**
+
+After finished v2, the owner chose 3 ideas: node types, dynamic music intensity, colour-blind mode.
+- **Node types** (config.NODE_*, KIND_*; core/node.py `kind`, `absorbed`, `shield`): FORTRESS (every 2nd attacking ship bounces off, so
+  defenders count double), FACTORY (production x2), RELAY (ships launched from it fly 1.5x faster). Only neutral nodes get a kind
+  (`KIND_MIX` 14 / 12 / 10 %, `mapgen._assign_kinds`, own dice so positions/sizes/garrisons of a seed are unchanged); on a 2-faction
+  map the mirrored twin gets the same kind; start nodes are always plain. Drawn as: double ring with 4 towers / turning gear / diamond;
+  hover shows a tooltip (KIND_HELP). AI: `needed` is multiplied by `node.shield`, factories score +4. `world.needed_to_capture` ("needs ~N")
+  counts the shield. tests/test_nodes.py (19 checks) is new.
+
+- **Dynamic music intensity**: `audio/music.build_energy(track)` = a second loop (high shimmer, doubled sparkles, quiet 16th hats, soft kick
+  unless the track has drums), same length, peak 0.35. `Audio` plays it on channel 1 (now 2 reserved channels), started together with
+  the base loop; only its volume changes (`set_intensity`, eased in `update`: rise 1.2 s, fall 3 s time constants; the base loop is
+  15% quieter in quiet moments, `BASE_DIP`). `Conductor._update_intensity` runs on every beat: activity = ships in the air + 8 x
+  recent clash casualties; target = min(1, activity/150) ** 0.6 (`INTENSITY_FULL`, `INTENSITY_CURVE`); 0 during the countdown and after
+  the match is decided. Track build time is ~1 s longer (energy layer built in the same background thread; startup wait ~2.5 s).
+  Cannot be judged by ear here: checked by numbers (peaks, loop edges, channel volumes over a simulated match).
+
+- **Colour-blind mode** (setting `colorblind`, key C, Esc menu toggle): `config.apply_palette()` updates FACTION_COLORS / FACTION_NAMES /
+  COLOR_NAMES IN PLACE (so `from config import FACTION_COLORS` everywhere sees it). Palette cyan (89,255,255), red (255,50,0),
+  pale yellow (237,255,165), magenta (255,0,255), found by a random search + hill climb maximising the smallest CIELAB difference under
+  protan / deutan / tritan simulation (worst pair dE 43; the default palette: protan 7). Shapes (config.FACTION_SHAPES, graphics/shapes.py)
+  on owned nodes, in the HUD names and the game-over table. `Game.apply_palette()` repaints (NodeView.refresh_colors, territory glow,
+  title text). Not changed in colour-blind mode: menu accent colour (still cyan) and the window icon. tests/test_colors.py.
+
+- Owner: "the always-playing new sound is annoying" -> `build_energy` is now purely tonal (soft shimmer + a few extra bells; the drums, kick and
+  16th hats are gone), peak 0.30, the intensity has a silent zone (`INTENSITY_QUIET` 30 ships in the air -> 0, `INTENSITY_FULL` 170 -> 1,
+  linear in between) and eases more slowly (rise 2 s, fall 4 s). New setting `dynamic_music` (Esc menu "DYNAMIC MUSIC"): off = energy layer
+  silent at once and the base loop never dips (`Audio.set_dynamic`). The menu rows are 50 px high now so the longer Esc menu fits.
+- Owner: "HARD is too hard, I want a level between HARD and NORMAL" -> new difficulty TOUGH (config.DIFFICULTIES is now EASY, NORMAL, TOUGH, HARD):
+  think every 3 beats, 1 mission, keeps 32% home, waits 4 beats, defends, no counter-attack (HARD: every 2 beats, 2 missions, 25%, no wait,
+  counter-attacks). AI-vs-AI over 48 matches (12 maps x 2 sizes x sides swapped): TOUGH beats NORMAL 46/48, HARD beats TOUGH 47/48; median match
+  length NORMAL-vs-TOUGH 75 s, HARD matches ~30 s. NOTE: a saved `difficulty` of 2 (the old HARD) is now TOUGH; HARD is index 3.
+  The title's attract battles use HARD by name. Settings accept 0..3.
+
+- Owner: rename tough -> HARD and hard -> EXTREME: `DIFFICULTIES = (EASY, NORMAL, HARD, EXTREME)`; the old TOUGH numbers are now `AI_TABLE["HARD"]`,
+  the old HARD numbers `AI_TABLE["EXTREME"]` (`AI_PLAYER_BIAS_EXTREME`). Saved indices keep their meaning (2 = the middle-hard level, now called HARD;
+  3 = EXTREME). Attract battles on the title use EXTREME. (Earlier PROGRESS notes below still say TOUGH / HARD in the OLD naming.)
+- Owner: "choose your colour in the menu instead of always being blue": new setting `player_color` (0..3, default 0) and a title-menu choice
+  "YOUR COLOUR" (value drawn in that colour with a dot; labels follow colour-blind mode via a function-valued `labels` in ui/menu.py).
+  `config.apply_palette(colorblind, player_color)`: you (faction 1) get the picked colour of the set, the opponents the remaining colours in menu
+  order; colour names follow (FACTION_NAMES[1] stays "YOU"). `config.color_choices(colorblind)` lists the four (rgb, name). Applies at once
+  (Game.apply_palette repaints nodes, territory glow and the title text). Instruments are still tied to the faction number, not the colour.
+  Only in the title menu (not in the in-match Esc menu).
 
 After finished v1 (owner: "every ~12 beats the circles stop giving light"):
 - Cause found by measuring the light around a node frame by frame: a dip every 16 beats (the chord changes, ~8 s). The dot grid was

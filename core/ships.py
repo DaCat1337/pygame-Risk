@@ -39,8 +39,8 @@ class Ships:
         free = len(self.alive) - self.count()
         return max(0, min(MAX_FLIGHT_PER_FACTION - flying, free))
 
-    def launch(self, owner, source, target_index, target, k, rng):
-        """Create up to k ships on the rim of `source`, flying towards `target`.
+    def launch(self, owner, source, target_index, target, k, rng, speed_mult=1.0):
+        """Create up to k ships on the rim of `source`, flying towards `target` (speed_mult 1.5 = a relay's faster ships).
 
         Each ship gets a small fixed sideways "lane offset" (up to 0.6 x the target's radius)
         so a swarm looks like a stream with some width, not a single line. The ship flies
@@ -63,8 +63,8 @@ class Ships:
         back = rng.uniform(0.0, SHIP_SPEED * DT, k)          # spawned somewhere inside this tick: no clumps
         self.pos[slots, 0] = source.x + vx * (source.radius - back)
         self.pos[slots, 1] = source.y + vy * (source.radius - back)
-        self.vel[slots, 0] = vx * SHIP_SPEED
-        self.vel[slots, 1] = vy * SHIP_SPEED
+        self.vel[slots, 0] = vx * SHIP_SPEED * speed_mult
+        self.vel[slots, 1] = vy * SHIP_SPEED * speed_mult
         self.owner[slots] = owner
         self.target[slots] = target_index
         self.alive[slots] = True

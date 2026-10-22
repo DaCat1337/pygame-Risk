@@ -144,6 +144,25 @@ def run():
     check(any(item.key == "bloom" for item in PauseScreen(game).menu.items), "the Esc menu has a BLOOM toggle")
 
 
+    # --- special nodes look different: each kind adds its own mark around the circle
+    from config import NODE_NORMAL, NODE_FORTRESS, NODE_FACTORY, NODE_RELAY
+    kind_world = game.play.world
+    spare = [n for n in kind_world.nodes if n.owner == 0][:3]
+    for n, k in zip(spare, (NODE_FORTRESS, NODE_FACTORY, NODE_RELAY)):
+        n.kind = k
+    game.draw()
+    fort, gear, relay = spare
+
+    def lit(x, y, r=4):
+        return max(sum(game.screen.get_at((int(x) + dx, int(y) + dy))[:3]) for dx in range(-r, r + 1) for dy in range(-r, r + 1))
+
+    check(lit(fort.x, fort.y - fort.radius - 8.5) > 90, "a fortress has its second ring")
+    check(lit(relay.x, relay.y - relay.radius - 17, 3) > 60, "a relay has its diamond (the top corner)")
+    check(lit(gear.x + gear.radius + 6, gear.y, 12) > 60, "a factory has its gear teeth")
+    for n in spare:
+        n.kind = NODE_NORMAL
+
+
 if __name__ == "__main__":
     run()
     raise SystemExit(0 if helpers.report("test_visuals") else 1)

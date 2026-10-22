@@ -36,6 +36,38 @@ FACTION_COLORS = {
 }
 FACTION_NAMES = {0: "NEUTRAL", 1: "YOU", 2: "MAGENTA", 3: "AMBER", 4: "LIME"}
 COLOR_NAMES = {0: "NEUTRAL", 1: "CYAN", 2: "MAGENTA", 3: "AMBER", 4: "LIME"}   # used when nobody is "you" (watch mode)
+FACTION_SHAPES = {1: "circle", 2: "square", 3: "triangle", 4: "diamond"}    # second cue in colour-blind mode (graphics/shapes.py)
+
+# The four colours you can play as, in the order of the menu: (RGB, name). The colour-blind set was picked by simulating
+# protan / deutan / tritan colour vision and maximising the smallest colour difference between any two factions
+# (and the grey neutral nodes). Worst pair: dE ~43; the normal set: dE 7.
+_COLOR_SETS = {
+    False: [((0, 230, 255), "CYAN"), ((255, 60, 140), "MAGENTA"), ((255, 180, 0), "AMBER"), ((150, 255, 80), "LIME")],
+    True: [((89, 255, 255), "CYAN"), ((255, 50, 0), "RED"), ((237, 255, 165), "YELLOW"), ((255, 0, 255), "MAGENTA")],
+}
+
+
+def color_choices(colorblind):
+    """The four selectable colours as [(rgb, name), ...] (normal or colour-blind set)."""
+    return _COLOR_SETS[bool(colorblind)]
+
+
+def apply_palette(colorblind, player_color=0):
+    """Give every faction its colour: YOU get colour number `player_color` of the set, the computer opponents get the
+    remaining colours in menu order. Also sets the colour names shown in the UI.
+
+    The dicts are changed IN PLACE, so every file that did `from config import FACTION_COLORS` sees the new colours at once."""
+    choices = _COLOR_SETS[bool(colorblind)]
+    player_color %= len(choices)
+    order = [player_color] + [i for i in range(len(choices)) if i != player_color]
+    for faction, index in enumerate(order, start=1):
+        rgb, name = choices[index]
+        FACTION_COLORS[faction] = rgb
+        COLOR_NAMES[faction] = name
+        if faction != PLAYER:
+            FACTION_NAMES[faction] = name
+
+
 C_BG = (0, 0, 0)
 C_TEXT = (235, 240, 255)
 C_DIM = (120, 130, 150)
@@ -46,6 +78,16 @@ CAP_PER_SIZE = 40                        # a node holds at most 40 * size ships 
 START_SIZE = 3
 START_GARRISON = 30
 NEUTRAL_GARRISON_PER_SIZE = (4, 11)      # neutral garrison = size * randint(4, 10)
+
+# --- special node types (the start nodes are always NORMAL; see core/node.py, core/mapgen.py) ---
+NODE_NORMAL, NODE_FORTRESS, NODE_FACTORY, NODE_RELAY = 0, 1, 2, 3
+KIND_NAMES = ("NORMAL", "FORTRESS", "FACTORY", "RELAY")
+KIND_HELP = {NODE_FORTRESS: "defenders count double", NODE_FACTORY: "makes twice the ships",
+             NODE_RELAY: "its ships fly faster"}
+KIND_MIX = (0.14, 0.12, 0.10)            # share of the non-start nodes that become FORTRESS / FACTORY / RELAY
+FORTRESS_SHIELD = 2                      # it takes this many attacking ships to remove one defender
+FACTORY_BOOST = 2                        # production multiplier of a factory
+RELAY_SPEED = 1.5                        # ships launched from a relay fly this much faster
 
 # --- map generation -------------------------------------------------------------
 MAP_NAMES = ("SMALL", "MEDIUM", "LARGE")
@@ -73,16 +115,17 @@ MATCH_LIMIT_SECONDS = 12 * 60            # after this the faction with the most 
 STATS_EVERY_BEATS = 2                    # share graph sample rate
 
 # --- computer opponents (see core/ai.py): tweak live in class! -------------------------
-DIFFICULTIES = ("EASY", "NORMAL", "HARD")
+DIFFICULTIES = ("EASY", "NORMAL", "HARD", "EXTREME")
 AI_TABLE = {
     # think_every: beats between decisions | max_orders: attack/defend missions per decision |
     # reserve: share of each garrison kept at home | start_delay: beats the AI waits before its first move |
     # defends: reacts to attacks | counter: counter-attacks the attacker's weakest node
     "EASY":   {"think_every": 10, "max_orders": 1, "reserve": 0.60, "start_delay": 24, "defends": False, "counter": False},
     "NORMAL": {"think_every": 4,  "max_orders": 1, "reserve": 0.40, "start_delay": 10, "defends": True,  "counter": False},
-    "HARD":   {"think_every": 2,  "max_orders": 2, "reserve": 0.25, "start_delay": 0,  "defends": True,  "counter": True},
+    "HARD":   {"think_every": 3,  "max_orders": 1, "reserve": 0.32, "start_delay": 4,  "defends": True,  "counter": False},
+    "EXTREME": {"think_every": 2,  "max_orders": 2, "reserve": 0.25, "start_delay": 0,  "defends": True,  "counter": True},
 }
-AI_PLAYER_BIAS_HARD = 1.15               # HARD likes to attack the player a bit more
+AI_PLAYER_BIAS_EXTREME = 1.15            # EXTREME likes to attack the player a bit more
 AI_SURPLUS = 1.2                         # send needed * 1.2 + 3 ships to be safe
 AI_SURPLUS_FLAT = 3
 

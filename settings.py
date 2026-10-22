@@ -8,21 +8,21 @@ Used by         : main.py, game.py.
 import json
 
 from audio.tracks import SHUFFLE
-from config import SCALINGS
+from config import SCALINGS, DIFFICULTIES
 
 DEFAULT_SETTINGS = {
-    "music_on": True, "music_vol": 0.5, "music_track": 0,     # 0 = first track ... SHUFFLE (= number of tracks) = random
+    "music_on": True, "music_vol": 0.5, "music_track": 0, "dynamic_music": True,    # 0 = first track ... SHUFFLE (= number of tracks) = random
     "sfx_on": True, "sfx_vol": 0.7,
-    "hints": True, "bloom": True, "scaling": 0,                             # scaling: index into config.SCALINGS
+    "hints": True, "bloom": True, "colorblind": False, "player_color": 0, "scaling": 0,                             # scaling: index into config.SCALINGS
     "opponents": 1,                                           # 1..3
-    "difficulty": 1,                                          # 0 EASY, 1 NORMAL, 2 HARD
+    "difficulty": 1,                                          # index into config.DIFFICULTIES: 0 EASY, 1 NORMAL, 2 HARD, 3 EXTREME
     "map_size": 1,                                            # 0 SMALL, 1 MEDIUM, 2 LARGE
     "send_fraction": 1,                                       # index: 0 = 25%, 1 = 50%, 2 = 75%, 3 = 100%
 }
 
 # allowed (lowest, highest) for the whole-number settings
-INT_RANGES = {"music_track": (0, SHUFFLE), "scaling": (0, len(SCALINGS) - 1), "opponents": (1, 3),
-              "difficulty": (0, 2), "map_size": (0, 2), "send_fraction": (0, 3)}
+INT_RANGES = {"music_track": (0, SHUFFLE), "player_color": (0, 3), "scaling": (0, len(SCALINGS) - 1), "opponents": (1, 3),
+              "difficulty": (0, len(DIFFICULTIES) - 1), "map_size": (0, 2), "send_fraction": (0, 3)}
 
 
 def _is_number(v):

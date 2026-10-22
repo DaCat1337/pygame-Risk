@@ -26,9 +26,10 @@ class Item:
     kind: str                  # "toggle", "slider", "choice" or "action"
     label: str
     key: str = ""              # settings key (toggle / slider / choice) or action id
-    labels: tuple = ()         # choice: the text of each option
+    labels: object = ()        # choice: the text of each option (a tuple, or a function returning one, for options that change)
     first: int = 0             # choice: the setting value of the first option (opponents start at 1)
     danger: bool = False       # drawn in red (quit)
+    swatch: object = None      # choice: optional function(index) -> RGB; the value is then drawn in that colour with a dot
 
 
 def toggle(label, key):
@@ -39,8 +40,8 @@ def slider(label, key):
     return Item("slider", label, key)
 
 
-def choice(label, key, labels, first=0):
-    return Item("choice", label, key, tuple(labels), first)
+def choice(label, key, labels, first=0, swatch=None):
+    return Item("choice", label, key, labels if callable(labels) else tuple(labels), first, swatch=swatch)
 
 
 def action(label, action_id, danger=False):
@@ -48,7 +49,7 @@ def action(label, action_id, danger=False):
 
 
 class Menu:
-    ROW_H = 54
+    ROW_H = 50
 
     def __init__(self, items, fonts, get, set_value, sound=None, title="", panel=True, width=860, center=(960, 540),
                  top=None):
@@ -67,10 +68,15 @@ class Menu:
                      for i in range(len(items))]
 
     # ------------------------------------------------------------------ values
+    @staticmethod
+    def labels_of(item):
+        return tuple(item.labels()) if callable(item.labels) else item.labels
+
     def value_text(self, item):
         v = self.get(item.key)
         if item.kind == "choice":
-            return item.labels[max(0, min(len(item.labels) - 1, int(v) - item.first))]
+            labels = self.labels_of(item)
+            return labels[max(0, min(len(labels) - 1, int(v) - item.first))]
         if item.kind == "slider":
             return f"{int(round(float(v) * 100))}%"
         return ""
@@ -86,7 +92,7 @@ class Menu:
             self.set_value(item.key, v)
             self.sound("tick")
         elif item.kind == "choice":
-            n = len(item.labels)
+            n = len(self.labels_of(item))
             index = (int(self.get(item.key)) - item.first + d) % n
             self.set_value(item.key, item.first + index)
             self.sound("tick")
@@ -201,7 +207,12 @@ class Menu:
             pygame.draw.circle(surf, WARM if selected else C_TEXT, (track.x + int(track.w * v), track.centery), 11)
             fonts.draw(surf, fonts.menu, self.value_text(item), C_TEXT, (row.right - 20, row.centery), "midright")
         elif item.kind == "choice":
-            text = fonts.draw(surf, fonts.menu, self.value_text(item), ACCENT, (row.right - 60, row.centery), "midright")
+            color = ACCENT
+            if item.swatch:                                          # e.g. YOUR COLOUR: the value is shown in that colour
+                color = item.swatch(max(0, int(self.get(item.key)) - item.first))
+            text = fonts.draw(surf, fonts.menu, self.value_text(item), color, (row.right - 60, row.centery), "midright")
             cy = row.centery
+            if item.swatch:
+                pygame.draw.circle(surf, color, (text.x - 52, cy), 10)
             pygame.draw.polygon(surf, C_DIM, [(text.x - 26, cy), (text.x - 12, cy - 10), (text.x - 12, cy + 10)])      # left arrow
             pygame.draw.polygon(surf, C_DIM, [(row.right - 26, cy), (row.right - 40, cy - 10), (row.right - 40, cy + 10)])  # right arrow

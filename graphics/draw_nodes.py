@@ -13,8 +13,10 @@ import math
 import pygame
 from pygame import gfxdraw
 
-from config import FACTION_COLORS, PULSE_PIXELS, PULSE_DECAY, CAPTURE_FADE, PLAYER, C_TEXT
+from config import (FACTION_SHAPES, FACTION_COLORS, PULSE_PIXELS, PULSE_DECAY, CAPTURE_FADE, PLAYER, C_TEXT, NODE_FORTRESS, NODE_FACTORY,
+                    NODE_RELAY)
 from graphics.glow import node_glow
+from graphics.shapes import draw_shape
 
 
 class NodeView:
@@ -32,6 +34,13 @@ class NodeView:
             if node.owner:
                 self.pulse[i] = 1.0
                 self.wave[i] = 1.0
+
+    def refresh_colors(self, nodes):
+        """The palette changed (colour-blind mode): show every node in its owner's new colour at once."""
+        for i, node in enumerate(nodes):
+            self.color[i] = tuple(map(float, FACTION_COLORS[node.owner]))
+            self.fade_from[i] = self.fade_to[i] = self.color[i]
+            self.fade[i] = 1.0
 
     def on_capture(self, index, new_owner):
         """Start a 0.3 s cross-fade from the old colour to the new owner's colour."""
@@ -64,8 +73,31 @@ def _arc_points(x, y, r, start, sweep, steps):
             for k in range(steps + 1)]
 
 
-def draw_nodes(surf, nodes, nv, fonts, t, bloom=True):
-    """Draw every node. t = seconds (for the orbiting dots). bloom=False leaves out the soft glow around nodes."""
+def _draw_kind(surf, node, x, y, color, t):
+    """The mark of a special node, drawn around its circle (so you can tell them apart at a glance):
+    FORTRESS = a second ring with four little towers, FACTORY = a slowly turning gear, RELAY = a diamond."""
+    r = node.radius
+    if node.kind == NODE_FORTRESS:
+        wall = _scaled(color, 0.85)
+        gfxdraw.aacircle(surf, x, y, r + 8, wall)
+        gfxdraw.aacircle(surf, x, y, r + 9, wall)
+        for k in range(4):
+            a = k * math.pi / 2 + math.pi / 4
+            surf.fill(wall, (int(x + (r + 8.5) * math.cos(a)) - 3, int(y + (r + 8.5) * math.sin(a)) - 3, 7, 7))
+    elif node.kind == NODE_FACTORY:
+        for k in range(10):                                         # ten teeth that turn slowly
+            a = t * 0.5 + k * 2 * math.pi / 10
+            pygame.draw.line(surf, _scaled(color, 0.9), (x + (r + 1) * math.cos(a), y + (r + 1) * math.sin(a)),
+                             (x + (r + 10) * math.cos(a), y + (r + 10) * math.sin(a)), 4)
+    elif node.kind == NODE_RELAY:
+        reach = r + 17
+        pygame.draw.aalines(surf, _scaled(color, 0.8), True,
+                            [(x, y - reach), (x + reach, y), (x, y + reach), (x - reach, y)])
+
+
+def draw_nodes(surf, nodes, nv, fonts, t, bloom=True, shapes=False):
+    """Draw every node. t = seconds (for the orbiting dots). bloom=False leaves out the soft glow around nodes;
+    shapes=True (colour-blind mode) marks owned nodes with their faction's symbol above the number."""
     for i, node in enumerate(nodes):
         owned = node.owner != 0
         color = tuple(int(c) for c in nv.color[i])
@@ -83,6 +115,8 @@ def draw_nodes(surf, nodes, nv, fonts, t, bloom=True):
         for k in range(3):
             gfxdraw.aacircle(surf, x, y, r - k, color)
 
+        if node.kind:
+            _draw_kind(surf, node, x, y, color, t)
         if owned and nv.wave[i] > 0.02:
             travelled = 1.0 - nv.wave[i]                        # 0 = at the node, 1 = fully spread and gone
             gfxdraw.aacircle(surf, x, y, int(node.radius + 8 + WAVE_REACH * travelled), (*color, int(55 * (1.0 - travelled) ** 2)))
@@ -101,6 +135,8 @@ def draw_nodes(surf, nodes, nv, fonts, t, bloom=True):
                 surf.fill(_scaled(color, 0.9), (int(x + (node.radius + 20) * math.cos(a)) - 1,
                                                 int(y + (node.radius + 20) * math.sin(a)) - 1, 3, 3))
 
+        if shapes and owned:
+            draw_shape(surf, FACTION_SHAPES[node.owner], (x, y - max(15, int(node.radius * 0.62))), 3 + node.radius // 14, color)
         fonts.draw(surf, fonts.node[node.size], str(int(max(0, node.garrison))), C_TEXT, (x, y), "center")
 
 

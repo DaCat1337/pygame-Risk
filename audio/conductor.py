@@ -6,7 +6,8 @@ Uses            : config.py, core/beat.py, audio/tracks.py, an Audio object (aud
 Used by         : game.py.
 
 The music is started on a BEAT event (never "whenever"), so it always lines up with the world's
-beat. If the music and the simulation drift apart by more than 0.12 s (a window drag, a slow
+beat. On every beat it also tells the Audio how busy the match is (ships in the air, recent clashes), and the
+music's energy layer fades in and out with that. If the music and the simulation drift apart by more than 0.12 s (a window drag, a slow
 PC), it restarts from the next beat.
 """
 import random
@@ -17,6 +18,9 @@ from config import DT, PLAYER, TICKS_PER_BEAT
 from core.beat import chord_of, chord_of_step, voice_slot
 
 DRIFT_LIMIT = 0.12                 # seconds
+INTENSITY_QUIET = 30               # up to this many ships in the air the match counts as quiet: the energy layer stays silent
+INTENSITY_FULL = 170               # "a big battle": this many ships in the air (clashes count extra) = full intensity
+CLASH_WEIGHT = 8                   # every ship destroyed in a recent clash counts like this many ships in the air
 
 
 class Conductor:
@@ -29,6 +33,7 @@ class Conductor:
         self.fade_ms = 0
         self.ref = None                             # (wall clock, world tick) at the moment the music was started
         self.pause_started = None
+        self.recent_clash = 0.0                     # ships destroyed in mid-air lately (halves every beat)
         self.apply_settings()
 
     @property
@@ -43,12 +48,13 @@ class Conductor:
         s = self.settings
         self.audio.set_music_on(s["music_on"])
         self.audio.set_music_volume(s["music_vol"])
+        self.audio.set_dynamic(s["dynamic_music"])
         self.audio.set_sfx_on(s["sfx_on"])
         self.audio.set_sfx_volume(s["sfx_vol"])
 
     def setting_changed(self, key):
         """A setting changed: apply it. Turning music back on rejoins on the next beat."""
-        if key in ("music_on", "music_vol", "sfx_on", "sfx_vol"):
+        if key in ("music_on", "music_vol", "sfx_on", "sfx_vol", "dynamic_music"):
             self.apply_settings()
             if key == "music_on" and self.settings["music_on"] and self.world is not None:
                 self.schedule(self.track, 250)
@@ -77,6 +83,9 @@ class Conductor:
         self.world = world
         self.track = self.resolve_track()
         self.ref = None
+        self.recent_clash = 0.0
+        if self.active:
+            self.audio.set_intensity(0.0)
         self.schedule(self.track, 250)
 
     def schedule(self, track_id, fade_ms=0):
@@ -147,12 +156,13 @@ class Conductor:
         if not self.active or world is not self.world:
             return
         audio = self.audio
-        launch, biggest_clash = 0.0, 0
+        launch, biggest_clash, beat_seen = 0.0, 0, False
         for e in events:
             kind = e[0]
             if quiet and kind not in ("beat", "step", "capture"):
                 continue
             if kind == "beat":
+                beat_seen = True
                 self._start_pending(world, e[1])
                 if quiet:
                     pass
@@ -166,6 +176,7 @@ class Conductor:
                 launch = max(launch, 1.0 if e[1] == PLAYER else 0.5)
             elif kind == "clash":
                 biggest_clash = max(biggest_clash, e[3])
+                self.recent_clash += e[3]
             elif kind == "capture":
                 self._play_capture(world, e[2], e[3])
             elif kind == "eliminated":
@@ -178,7 +189,19 @@ class Conductor:
             audio.play("whoosh", launch)                                # at most one per beat
         if biggest_clash:
             audio.play("zap", min(1.0, 0.25 + biggest_clash / 12))     # louder for bigger clashes
+        if beat_seen:
+            self._update_intensity(world)
         self._check_drift(world)
+
+    def _update_intensity(self, world):
+        """How busy is the match right now? 0 = nothing flying, 1 = a big battle. Worked out once per beat."""
+        if not world.live or world.over:
+            target = 0.0
+        else:
+            activity = int(world.ships.alive.sum()) + CLASH_WEIGHT * self.recent_clash
+            target = max(0.0, min(1.0, (activity - INTENSITY_QUIET) / (INTENSITY_FULL - INTENSITY_QUIET)))
+        self.recent_clash *= 0.5                                       # old clashes fade from the memory
+        self.audio.set_intensity(target)
 
     def _play_step_voice(self, world, step):
         """Each alive faction plays its instrument on its own eighth-note slots, louder the more of the map it owns."""

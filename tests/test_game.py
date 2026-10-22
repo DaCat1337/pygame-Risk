@@ -314,6 +314,25 @@ def audio_section(screen):
     g3.music._play_capture(SimpleNamespace(ticks=0, has_player=True), 1, 2)
     check(audio._duck is not None, "the player losing a node ducks the music")
     audio._duck = None
+
+    # dynamic intensity: the conductor turns "how busy is the match" into 0..1 for the music's energy layer
+    import numpy as np
+    from audio.conductor import INTENSITY_QUIET, INTENSITY_FULL, CLASH_WEIGHT
+
+    def intensity(ships, clashes=0.0, live=True, over=False):
+        busy_world = SimpleNamespace(live=live, over=over, ships=SimpleNamespace(alive=np.ones(ships, dtype=bool)))
+        g3.music.recent_clash = clashes
+        g3.music._update_intensity(busy_world)
+        return audio.energy_target
+
+    check(intensity(INTENSITY_QUIET) == 0.0, "a quiet match (few ships in the air) leaves the energy layer silent")
+    half = intensity((INTENSITY_QUIET + INTENSITY_FULL) // 2)
+    check(0.4 < half < 0.6, f"half way between quiet and a big battle = about half intensity ({half:.2f})")
+    check(intensity(INTENSITY_FULL * 6) == 1.0, "a big battle = full intensity (capped at 1)")
+    check(intensity(0, clashes=10) == (CLASH_WEIGHT * 10 - INTENSITY_QUIET) / (INTENSITY_FULL - INTENSITY_QUIET) and g3.music.recent_clash == 5,
+          "recent clashes count, and are half forgotten each beat")
+    check(intensity(INTENSITY_FULL, live=False) == 0.0, "during the 3-2-1 countdown the music stays calm")
+    check(intensity(INTENSITY_FULL, over=True) == 0.0, "after the match is decided the energy layer fades out")
     g3.handle_event(key(pygame.K_p))
     check(g3.play.paused, "P pauses (the mixer is paused too)")
     ref = g3.music.ref

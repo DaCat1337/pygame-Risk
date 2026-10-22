@@ -9,7 +9,7 @@ PlayScreen never changes the rules itself: it asks the World (world.order) and t
 """
 import pygame
 
-from config import SCREEN_W, SCREEN_H, FACTION_COLORS, C_TEXT, C_DIM, PLAYER, SEND_FRACTIONS
+from config import SCREEN_W, SCREEN_H, FACTION_COLORS, C_TEXT, C_DIM, PLAYER, SEND_FRACTIONS, KIND_NAMES, KIND_HELP
 from core.beat import beat_phase, is_chord_change
 from graphics.draw_nodes import NodeView, draw_nodes, draw_selection
 from graphics.draw_ships import draw_ships
@@ -27,6 +27,7 @@ class WorldView:
     def __init__(self, fonts):
         self.fonts = fonts
         self.bloom = True                          # glow around nodes / ships / flashes (the screens set this from the settings)
+        self.shapes = False                        # colour-blind mode: faction symbols on the nodes
         self.vignette = build_vignette()
         self.fx = Effects()
         self.sky = Starfield()                     # nebula + twinkling stars behind everything
@@ -41,6 +42,13 @@ class WorldView:
         self.territory.last_owners = None          # (forces a fresh glow for the new map)
         self.territory.update(world, instant=True)
         self.grid_flash, self.time = 0.0, 0.0
+
+    def palette_changed(self, world):
+        """Colour-blind mode was switched: repaint everything that remembers colours."""
+        if world is not None and self.nv is not None:
+            self.nv.refresh_colors(world.nodes)
+            self.territory.last_owners = None
+            self.territory.update(world, instant=True)
 
     def on_events(self, world, events):
         """React to what the World reported: pulse on the beat, sparks on clashes, rings on captures."""
@@ -70,7 +78,7 @@ class WorldView:
         self.sky.draw(surf)                        # (covers the whole screen, so no fill with C_BG is needed)
         self.territory.draw(surf)
         draw_grid(surf, self.grid_flash)
-        draw_nodes(surf, world.nodes, self.nv, self.fonts, self.time, self.bloom)
+        draw_nodes(surf, world.nodes, self.nv, self.fonts, self.time, self.bloom, self.shapes)
         draw_ships(surf, world.ships, self.bloom)
         self.fx.draw(surf, self.bloom)
         surf.blit(self.vignette, (0, 0), special_flags=pygame.BLEND_MULT)
@@ -139,6 +147,8 @@ class PlayScreen:
             game.toggle_hints()
         elif kind == "bloom":
             game.toggle_bloom()
+        elif kind == "colorblind":
+            game.toggle_colorblind()
 
     # ------------------------------------------------------------------ one frame
     def update(self, dt):
@@ -161,9 +171,14 @@ class PlayScreen:
                 and world.nodes[inp.hover].owner != PLAYER:
             label = f"needs ~{world.needed_to_capture(inp.hover, inp.selection)}"
         self.view.bloom = self.game.settings["bloom"]
+        self.view.shapes = self.game.settings["colorblind"]
         self.view.draw(surf, world, inp.selection, inp.hover, inp.cursor if inp.dragging else None, label)
+        if inp.hover is not None and world.nodes[inp.hover].kind:        # say what a special node does
+            node = world.nodes[inp.hover]
+            self.game.fonts.draw(surf, self.game.fonts.small, f"{KIND_NAMES[node.kind]}: {KIND_HELP[node.kind]}", C_TEXT,
+                                 (node.x, node.y + node.radius + 38), "midtop")
         draw_hud(surf, world, self.game.fonts, self.game.track_name(), self.game.settings["send_fraction"],
-                 self.game.settings["hints"])
+                 self.game.settings["hints"], self.game.settings["colorblind"])
         if not world.live:
             self._draw_countdown(surf)
         if self.paused and self.game.overlay is None:

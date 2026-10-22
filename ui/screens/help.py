@@ -17,7 +17,8 @@ LINES = [
     "Every beat your nodes make ships (big nodes more). Ships you order leave on the next beat.",
     "Enemy swarms that meet in mid-air destroy each other. What gets through lowers the node; at zero it is yours.",
     "Each colour plays its own instrument, louder the more it owns. Captures ring a bell.",
-    "Mouse wheel or keys 1-4 = send 25 / 50 / 75 / 100%.   P = pause   M = next track   B = bloom   Esc = menu.",
+    "Special nodes: FORTRESS (double ring) defenders count double, FACTORY (gear) makes twice the ships, RELAY (diamond) launches faster ships.",
+    "Mouse wheel or keys 1-4 = send 25 / 50 / 75 / 100%.   P = pause   M = music   B = bloom   C = colour-blind   Esc = menu.",
 ]
 LEFT, RIGHT, ROW = (620, 830), (1300, 830), 830
 

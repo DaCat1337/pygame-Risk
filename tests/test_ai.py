@@ -43,7 +43,7 @@ def run():
         check(legal, f"{name}: orders only from owned nodes, to real other nodes, fraction in (0, 1]")
         check(reserve_ok, f"{name}: never sends below its home reserve ({int(reserve * 100)}%)")
         check(missions_ok, f"{name}: at most {max_orders} missions per think")
-    check(ai_think(w, 1, "HARD", np.random.default_rng(1)) is not None, "difficulty can be given by name")
+    check(ai_think(w, 1, "EXTREME", np.random.default_rng(1)) is not None, "difficulty can be given by name")
 
     # --- a faction with nothing to command returns no orders
     w = World(seed=4, n_factions=2, map_size=1, has_player=False)
@@ -78,7 +78,7 @@ def run():
              Node(1700, 500, 3, owner=1, garrison=30)]
     w = World(seed=1, n_factions=2, nodes=nodes, has_player=False)
     w.ships.launch(2, w.nodes[0], 1, w.nodes[1], 25, np.random.default_rng(2))
-    check(all(o[1] != 1 for o in ai_think(w, 2, "HARD", np.random.default_rng(1))), "no extra ships to a target that has enough on the way")
+    check(all(o[1] != 1 for o in ai_think(w, 2, "EXTREME", np.random.default_rng(1))), "no extra ships to a target that has enough on the way")
 
     # --- AI vs AI: finishes, and is repeatable (same seed = same winner and tick count)
     results = []
@@ -91,26 +91,30 @@ def run():
     check(results[0] == results[1], f"AI vs AI is deterministic: {results[0]} == {results[1]}")
     check(w.over and w.winner in (1, 2) and w.stats.match_ticks <= MATCH_LIMIT_SECONDS / DT + 1,
           "AI vs AI (seed 1, NORMAL) ends with a winner within 12 sim-minutes")
-    # HARD vs HARD ends decisively (somebody is eliminated) well before the 12-minute safety rule
+    # EXTREME vs EXTREME ends decisively (somebody is eliminated) well before the 12-minute safety rule
     w = World(seed=1, n_factions=2, map_size=1, has_player=False)
-    w.add_opponents(2)
+    w.add_opponents(DIFFICULTIES.index("EXTREME"))
     while not w.over:
         w.tick()
-    check(w.eliminated and w.seconds < MATCH_LIMIT_SECONDS - 60, f"HARD vs HARD ends by elimination ({w.seconds:.0f} s)")
+    check(w.eliminated and w.seconds < MATCH_LIMIT_SECONDS - 60, f"EXTREME vs EXTREME ends by elimination ({w.seconds:.0f} s)")
 
     # the difficulty levels really differ: the stronger AI wins every match (3 maps, sides swapped)
     def duel(strong, weak, seed, swap):
         w = World(seed=seed, n_factions=2, map_size=1, has_player=False)
         w.add_opponents(1)
         a, b = (weak, strong) if swap else (strong, weak)
-        w.opponents[1].difficulty, w.opponents[2].difficulty = a, b
+        w.opponents[1].difficulty, w.opponents[2].difficulty = DIFFICULTIES.index(a), DIFFICULTIES.index(b)
         while not w.over:
             w.tick()
         return w.winner == (2 if swap else 1)
-    check(all(duel(2, 1, seed, swap) for seed in (1, 2, 3) for swap in (False, True)), "HARD beats NORMAL in 6 of 6 matches")
-    check(all(duel(1, 0, seed, swap) for seed in (1, 2, 3) for swap in (False, True)), "NORMAL beats EASY in 6 of 6 matches")
-    check(AI_TABLE["EASY"]["think_every"] > AI_TABLE["NORMAL"]["think_every"] > AI_TABLE["HARD"]["think_every"],
-          "the harder the AI, the more often it thinks")
+    for strong, weak in (("EXTREME", "HARD"), ("HARD", "NORMAL"), ("NORMAL", "EASY")):
+        check(all(duel(strong, weak, seed, swap) for seed in (1, 2, 3) for swap in (False, True)),
+              f"{strong} beats {weak} in 6 of 6 matches")
+    think = [AI_TABLE[name]["think_every"] for name in DIFFICULTIES]
+    check(think == sorted(think, reverse=True) and len(set(think)) == len(think), "the harder the AI, the more often it thinks")
+    check(DIFFICULTIES == ("EASY", "NORMAL", "HARD", "EXTREME"), "four levels, HARD sits between NORMAL and EXTREME")
+    check(AI_TABLE["HARD"]["max_orders"] <= AI_TABLE["EXTREME"]["max_orders"] and not AI_TABLE["HARD"]["counter"] and AI_TABLE["EXTREME"]["counter"],
+          "HARD does not counter-attack and plays fewer missions than EXTREME")
     print(f"    AI vs AI seed 1 NORMAL: faction {results[0][0]} wins after {results[0][1] * DT:.0f} s of game time")
 
 

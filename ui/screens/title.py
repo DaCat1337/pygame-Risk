@@ -14,7 +14,7 @@ import numpy as np
 import pygame
 
 from audio.tracks import TRACK_NAMES
-from config import SCREEN_W, SCREEN_H, MAP_NAMES, DIFFICULTIES, C_DIM, FACTION_COLORS
+from config import SCREEN_W, SCREEN_H, MAP_NAMES, DIFFICULTIES, C_DIM, FACTION_COLORS, color_choices
 from core.beat import beat_phase
 from core.world import World
 from graphics.glow import dim
@@ -36,6 +36,8 @@ class TitleScreen:
                  choice("DIFFICULTY", "difficulty", DIFFICULTIES),
                  choice("MAP", "map_size", MAP_NAMES),
                  choice("MUSIC", "music_track", TRACK_NAMES + ["SHUFFLE"]),
+                 choice("YOUR COLOUR", "player_color", lambda: [name for _, name in color_choices(game.settings["colorblind"])],
+                        swatch=lambda i: color_choices(game.settings["colorblind"])[i][0]),
                  action("WATCH AI BATTLE", "watch"),
                  action("HOW TO PLAY", "help"),
                  action("SETTINGS", "settings"),
@@ -55,7 +57,7 @@ class TitleScreen:
         """A fresh computer-vs-computer battle on a random map. The beat count carries on from the last one."""
         previous = self.world
         self.world = World(random.randrange(1_000_000), random.choice((2, 3)), 1, countdown_beats=0, has_player=False)
-        self.world.add_opponents(2)                      # HARD vs HARD: lively, decisive battles for the background
+        self.world.add_opponents(DIFFICULTIES.index("EXTREME"))     # EXTREME vs EXTREME: lively, decisive battles for the background
         if previous is not None:
             self.world.ticks = previous.ticks             # exactly where the last battle stopped: the music must not notice
             self.game.music.follow(self.world)
@@ -68,6 +70,8 @@ class TitleScreen:
             self.game.next_track()
         elif e.type == pygame.KEYDOWN and e.key == pygame.K_b:
             self.game.toggle_bloom()
+        elif e.type == pygame.KEYDOWN and e.key == pygame.K_c:
+            self.game.toggle_colorblind()
         elif e.type == pygame.KEYDOWN and e.key == pygame.K_F1:
             self.game.show_help()
         result = self.menu.handle_event(e)
@@ -120,6 +124,7 @@ class TitleScreen:
 
     def draw(self, surf):
         self.view.bloom = self.game.settings["bloom"]
+        self.view.shapes = self.game.settings["colorblind"]
         self.view.draw(surf, self.world)
         dim(surf, DIM)                                                            # dim the battle to 40%
         if self._title_images is None:
