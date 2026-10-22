@@ -8,12 +8,17 @@ Used by         : main.py, game.py.
 import json
 
 from audio.tracks import SHUFFLE
-from config import SCALINGS, DIFFICULTIES, PACE_NAMES
+from config import (SCALINGS, DIFFICULTIES, PACE_NAMES, DEFENCE_CHOICES, UNREST_CHOICES, SPEED_CHOICES, REACTION_NAMES,
+                    preset_choices)
+
+_LONG = preset_choices(2)                                      # the default match length is LONG
 
 DEFAULT_SETTINGS = {
     "music_on": True, "music_vol": 0.5, "music_track": 0, "dynamic_music": True,    # 0 = first track ... SHUFFLE (= number of tracks) = random
     "sfx_on": True, "sfx_vol": 0.7,
-    "hints": True, "bloom": True, "colorblind": False, "player_color": 0, "pace": 2, "scaling": 0,                             # scaling: index into config.SCALINGS
+    "hints": True, "bloom": True, "colorblind": False, "player_color": 0, "scaling": 0,
+    "pace": 2, "custom_defence": _LONG[0], "custom_unrest": _LONG[1], "custom_speed": _LONG[2],   # MATCH LENGTH preset (3 = CUSTOM) and its three brakes
+    "ai_reaction": 1,                                         # index into config.REACTION_NAMES: SLOW, NORMAL, FAST                             # scaling: index into config.SCALINGS
     "opponents": 1,                                           # 1..3
     "difficulty": 1,                                          # index into config.DIFFICULTIES: 0 EASY, 1 NORMAL, 2 HARD, 3 EXTREME
     "map_size": 1,                                            # 0 SMALL, 1 MEDIUM, 2 LARGE
@@ -21,7 +26,8 @@ DEFAULT_SETTINGS = {
 }
 
 # allowed (lowest, highest) for the whole-number settings
-INT_RANGES = {"music_track": (0, SHUFFLE), "player_color": (0, 3), "pace": (0, len(PACE_NAMES) - 1), "scaling": (0, len(SCALINGS) - 1), "opponents": (1, 3),
+INT_RANGES = {"music_track": (0, SHUFFLE), "player_color": (0, 3), "pace": (0, len(PACE_NAMES) - 1), "custom_defence": (0, len(DEFENCE_CHOICES) - 1),
+              "custom_unrest": (0, len(UNREST_CHOICES) - 1), "custom_speed": (0, len(SPEED_CHOICES) - 1), "ai_reaction": (0, len(REACTION_NAMES) - 1), "scaling": (0, len(SCALINGS) - 1), "opponents": (1, 3),
               "difficulty": (0, len(DIFFICULTIES) - 1), "map_size": (0, 2), "send_fraction": (0, 3)}
 
 

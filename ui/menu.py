@@ -30,6 +30,7 @@ class Item:
     first: int = 0             # choice: the setting value of the first option (opponents start at 1)
     danger: bool = False       # drawn in red (quit)
     swatch: object = None      # choice: optional function(index) -> RGB; the value is then drawn in that colour with a dot
+    summary: object = None     # action: optional function() -> text shown on the right of the row (e.g. the current choices)
 
 
 def toggle(label, key):
@@ -44,8 +45,8 @@ def choice(label, key, labels, first=0, swatch=None):
     return Item("choice", label, key, labels if callable(labels) else tuple(labels), first, swatch=swatch)
 
 
-def action(label, action_id, danger=False):
-    return Item("action", label, action_id, danger=danger)
+def action(label, action_id, danger=False, summary=None):
+    return Item("action", label, action_id, danger=danger, summary=summary)
 
 
 class Menu:
@@ -187,6 +188,8 @@ class Menu:
             color = DANGER if item.danger else (WARM if selected else C_TEXT)
             if item.kind == "action":
                 fonts.draw(surf, fonts.menu, item.label, color, (row.x + 20, row.centery), "midleft")
+                if item.summary:
+                    fonts.draw(surf, fonts.menu, item.summary(), ACCENT, (row.right - 20, row.centery), "midright")
                 continue
             fonts.draw(surf, fonts.menu, item.label, color, (row.x + 20, row.centery), "midleft")
             self._draw_value(surf, item, row, selected)

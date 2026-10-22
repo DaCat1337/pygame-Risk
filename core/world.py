@@ -22,7 +22,7 @@ import numpy as np
 
 from config import (TICKS_PER_BEAT, MATCH_LIMIT_SECONDS, STATS_EVERY_BEATS, PLAYER, DT, PACE, BEAT,
                     AI_TABLE, DIFFICULTIES, NODE_RELAY, RELAY_SPEED)
-from core.ai import ai_think, Opponent
+from core.ai import ai_think, ai_timing, Opponent
 from core.beat import beat_of, is_beat_tick, is_step_tick, step_of
 from core.combat import resolve_clashes
 from core.mapgen import generate_map
@@ -197,23 +197,24 @@ class World:
             counts[node.owner] += 1
         self.stats.note_nodes(counts)
 
-    def add_opponents(self, difficulty):
+    def add_opponents(self, difficulty, reaction=1):
         """Make every faction except the human player a computer opponent (all of them in watch mode).
-        Each gets its own dice, seeded from the match seed, so a match is repeatable."""
+        `reaction` (0 SLOW, 1 NORMAL, 2 FAST) is how quickly they act. Each gets its own dice, seeded from the match seed,
+        so a match is repeatable."""
         self.opponents = {}
         for f in self.factions():
             if f != PLAYER or not self.has_player:
-                self.opponents[f] = Opponent(difficulty, np.random.default_rng(self.seed + f))
+                self.opponents[f] = Opponent(difficulty, np.random.default_rng(self.seed + f), reaction)
 
     def _run_opponents(self, beat):
         """Each opponent thinks every N beats (N depends on the difficulty). It only asks via order()."""
         for f, opp in self.opponents.items():
             if f in self.eliminated:
                 continue
-            cfg = AI_TABLE[DIFFICULTIES[opp.difficulty]]
-            if beat < cfg["start_delay"]:
+            think_every, start_delay = ai_timing(DIFFICULTIES[opp.difficulty], opp.reaction)
+            if beat < start_delay:
                 continue                                   # a slow starter gives you a head start
-            if (beat + f) % cfg["think_every"] == 0:       # "+ f" so the factions do not all think on the same beat
+            if (beat + f) % think_every == 0:       # "+ f" so the factions do not all think on the same beat
                 for source, target, fraction in ai_think(self, f, opp.difficulty, opp.rng):
                     self.order([source], target, fraction, f)
 

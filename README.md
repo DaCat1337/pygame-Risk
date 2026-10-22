@@ -50,9 +50,16 @@ on the spot. Other tracks are built the first time you pick them (a message tell
 
 ## The menus
 
-**Title menu:** PLAY, OPPONENTS (1-3), DIFFICULTY (EASY / NORMAL / HARD / EXTREME), MAP (small / medium / large), **MATCH LENGTH** (short / medium / long),
-MUSIC (four tracks or shuffle; changing it previews the track on the next beat), **YOUR COLOUR** (cyan / magenta / amber / lime,
-the computer opponents get the other colours), WATCH AI BATTLE, HOW TO PLAY, SETTINGS, QUIT.
+**Title menu:** PLAY, OPPONENTS (1-3), **DIFFICULTY** (opens the difficulty page, see below; the menu shows the current level and match length),
+MAP (small / medium / large), MUSIC (four tracks or shuffle; changing it previews the track on the next beat), **YOUR COLOUR**
+(cyan / magenta / amber / lime, the computer opponents get the other colours), WATCH AI BATTLE, HOW TO PLAY, SETTINGS, QUIT.
+
+**Difficulty page:** two kinds of settings that are independent of each other.
+- The computer: **AI LEVEL** (EASY / NORMAL / HARD / EXTREME: how smart and aggressive it is) and **AI REACTION** (SLOW / NORMAL / FAST:
+  how often it acts and how long it waits before its first move).
+- The battlefield, the same for both sides: **MATCH LENGTH** (SHORT / MEDIUM / LONG / CUSTOM) and the three brakes it is made of,
+  **DEFENCE**, **CAPTURE UNREST** and **SHIP SPEED**. Editing a brake switches the preset to CUSTOM; setting the brakes to a preset's values
+  shows that preset again. Every change applies at once.
 
 **Esc menu / SETTINGS:** music on/off, music track, music volume, **DYNAMIC MUSIC** (the battle-intensity layer), sound effects
 on/off and volume, hints, **BLOOM**, **COLOUR-BLIND MODE**, screen scaling, fullscreen, restart, quit.
@@ -102,7 +109,7 @@ game4/
     menu.py            one reusable Menu (toggle / slider / choice / action)
     hud.py             power bar, beat dots, timer, track name, hints
     input.py           mouse and keyboard -> selection, drag, actions
-    screens/           title (with attract mode), play, pause menu, game over, help
+    screens/           title (with attract mode), play, pause menu, difficulty page, game over, help
 
   tests/             run_all.py runs every test_*.py: beat, mapgen, world, combat, ai, audio, settings,
                      nodes (special nodes), colors (colour-blind palette), game, visuals, perf
@@ -156,6 +163,8 @@ looks at the best move **right now**, with no plan for later. The AI uses `world
 There are four levels: EASY, NORMAL, HARD and EXTREME. The table `AI_TABLE` in `config.py` sets how often the AI thinks,
 how many missions it plans at once, how many ships it keeps at home, whether it defends, whether it counter-attacks, and how
 long it waits at the start. The tests play the levels against each other, so a higher level really beats a lower one.
+**AI REACTION** is a separate dial on top: it scales the table's "how often it thinks" and "how long it waits" (`AI_REACTION` in
+`config.py`, applied by `ai_timing()` in `core/ai.py`), so a smart but slow opponent is possible.
 
 ### 5. Synthesised sound (`audio/`)
 Every sound is a sum of sine waves, noise and envelopes calculated with NumPy. Nothing is recorded.
@@ -194,7 +203,7 @@ file that imported them sees the new palette at once.
 
 ### 8. How long a match lasts (`config.py` `PACE`, `apply_pace`)
 Without a brake the stronger side snowballs: every captured node adds production, so one good attack decides the match in a minute
-or two. The title menu's **MATCH LENGTH** chooses three brakes at once:
+or two. **MATCH LENGTH** on the difficulty page chooses three brakes at once (or you set them one by one, CUSTOM):
 - **defence**: how many attacking ships it takes to remove one defender (SHORT 1, MEDIUM 1.5, LONG 2),
 - **unrest**: a freshly captured node makes no ships for a few beats (SHORT 0, MEDIUM and LONG 8),
 - **speed**: ships fly slower, which gives the defender time to react (SHORT 100%, MEDIUM and LONG 77%).
@@ -233,5 +242,5 @@ Note names look like `C4`, `Bb2`, `F#3` (letter, optional `#` or `b`, octave num
 - Press **C** and **B** live: colour-blind mode and bloom change the whole picture at once.
 - Show the **share graph** on the game-over screen: it is the story of the match.
 - Open `config.py` and change one number (for example `SHIP_SPEED`), restart, and show the difference.
-- Switch **MATCH LENGTH** between SHORT and LONG in the title menu and watch the battle behind it change pace.
+- Open **DIFFICULTY** and switch MATCH LENGTH between SHORT and LONG, or AI REACTION between SLOW and FAST, and watch the battle behind change pace.
 - Test sound and fullscreen on the presentation machine **before** the class.

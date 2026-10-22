@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from config import (AI_TABLE, DIFFICULTIES, AI_PLAYER_BIAS_EXTREME, AI_SURPLUS, AI_SURPLUS_FLAT, PACE, BEAT,
+from config import (AI_TABLE, AI_REACTION, DIFFICULTIES, AI_PLAYER_BIAS_EXTREME, AI_SURPLUS, AI_SURPLUS_FLAT, PACE, BEAT,
                     PLAYER, NEUTRAL, NODE_FACTORY)
 
 def _per_beat():
@@ -28,6 +28,20 @@ class Opponent:
     """What the World remembers about one computer player."""
     difficulty: int                        # index into config.DIFFICULTIES
     rng: np.random.Generator               # its own dice: only used to break ties, so matches are repeatable
+    reaction: int = 1                      # index into config.REACTION_NAMES: SLOW, NORMAL, FAST
+
+
+MIN_THINK_EVERY = 2                    # beats: the fastest an AI may think
+
+
+def ai_timing(difficulty_name, reaction=1):
+    """(think_every, start_delay) in beats for a difficulty at a reaction speed: the table's numbers scaled by AI_REACTION.
+    SLOW thinks less often and starts later, FAST thinks more often and starts sooner. It never thinks more often than every
+    2 beats: measured, an AI that re-plans on every single beat plays WORSE (it keeps changing its mind), and EXTREME is
+    already at that limit, so FAST only makes EXTREME start sooner (it already starts at once)."""
+    cfg = AI_TABLE[difficulty_name]
+    think_factor, delay_factor = AI_REACTION[reaction]
+    return max(MIN_THINK_EVERY, round(cfg["think_every"] * think_factor)), round(cfg["start_delay"] * delay_factor)
 
 
 def _dist(a, b):

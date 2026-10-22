@@ -21,6 +21,8 @@ Continue with: "Read PLAN.md and PROGRESS.md, continue".
 | v3 feedback: calmer dynamic music + DYNAMIC MUSIC toggle, new TOUGH difficulty | done | `game4 phase6 fix7` | 414 checks |
 | v3 feedback: difficulties renamed, YOUR COLOUR choice | done | `game4 phase6 fix8` | 449 checks |
 | v3 feedback: MATCH LENGTH (matches were too short) | done | `game4 phase6 fix9` | 460 checks |
+| v4 feedback: DIFFICULTY page (AI level, AI reaction, match length + 3 brakes) | done | `game4 phase6 fix10` | 499 checks |
+| finished v5 (DIFFICULTY page with AI reaction and match-length brakes) | done | `game4 finished v5` (everything incl. settings.json) | 499 checks |
 | finished v4 (owner: "it works great now") | done | `game4 finished v4` (everything incl. settings.json) | 460 checks |
 | finished v3 (README rewritten; node types, dynamic music, colour-blind mode, 4 difficulties, colour choice) | done | `game4 finished v3` (everything incl. settings.json) | 449 checks |
 
@@ -80,6 +82,21 @@ After finished v2, the owner chose 3 ideas: node types, dynamic music intensity,
   fractional defence handled in `World._land` (`floor(absorbed / shield)`). `SHIP_SPEED` stays the base for all presets. The "needs ~N" label and
   the AI count the defence. The rule tests run at SHORT (`apply_pace(0)` at the start of test_world / combat / ai / nodes), Game tests at the
   default LONG. NOTE: the earlier notes about the fortress ("defenders count double") describe SHORT.
+
+- Owner: "make a bigger difficulty tab, maybe AI action speed / 2 settings" -> the title menu has one DIFFICULTY row (shows e.g. "HARD / LONG")
+  that opens `ui/screens/difficulty.py` (an overlay built on ui/menu.py): AI LEVEL, AI REACTION (SLOW / NORMAL / FAST), MATCH LENGTH
+  (SHORT / MEDIUM / LONG / CUSTOM) and the three brakes DEFENCE (1 .. 3 ships per defender), CAPTURE UNREST (OFF .. 16 beats), SHIP SPEED
+  (100% .. 50%), with a one-sentence explanation under the selected row. MATCH LENGTH was NOT renamed "AI action speed": it changes the rules for
+  both sides, the AI's own speed is the separate AI REACTION.
+  Data: settings `pace` (0..3, 3 = CUSTOM), `custom_defence`, `custom_unrest`, `custom_speed` (indices into config.DEFENCE_CHOICES / UNREST_CHOICES /
+  SPEED_CHOICES) and `ai_reaction` (0..2). The three `custom_*` values are always the LIVE brakes (`Game.apply_pace_settings` -> `config.apply_custom_pace`);
+  choosing a preset copies its values into them (`Game.sync_pace`, also at start-up, so an old settings.json with only `pace` still works);
+  editing one sets `pace` to the preset they match or CUSTOM (`config.matching_preset`). AI reaction: `config.AI_REACTION` factors for
+  (think_every, start_delay) = SLOW (1.5, 1.5), NORMAL (1, 1), FAST (0.67, 0.5), applied by `core/ai.ai_timing(name, reaction)`; `Opponent.reaction`;
+  `World.add_opponents(difficulty, reaction=1)`. The title's attract battles use NORMAL reaction. `Menu` action rows can show a summary (`Item.summary`).
+  Measured (HARD/NORMAL/EXTREME, 32 AI-vs-AI matches each, LONG pace): FAST beats NORMAL 29/32 (NORMAL level) and 27/32 (HARD); NORMAL beats SLOW 31/32 and 31/32.
+  At EXTREME an AI that re-planned EVERY beat played worse (FAST lost 10/32 to NORMAL), so `MIN_THINK_EVERY = 2`: EXTREME FAST == NORMAL (16/32), FAST/NORMAL beat SLOW 23/32.
+  tests/test_difficulty.py is new (37 checks; includes FAST beats SLOW at the same level on both sides).
 
 After finished v1 (owner: "every ~12 beats the circles stop giving light"):
 - Cause found by measuring the light around a node frame by frame: a dip every 16 beats (the chord changes, ~8 s). The dot grid was

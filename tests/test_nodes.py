@@ -105,7 +105,7 @@ def run():
 
 
     # --- MATCH LENGTH presets (config.PACE): defenders count more, conquered nodes are in unrest, ships fly slower
-    check(PACE_NAMES == ("SHORT", "MEDIUM", "LONG"), "three match-length presets")
+    check(PACE_NAMES == ("SHORT", "MEDIUM", "LONG", "CUSTOM"), "three match-length presets, and CUSTOM")
     apply_pace(2)
     check(PACE["defence"] == 2.0 and PACE["unrest"] == 8 and abs(PACE["speed"] - SHIP_SPEED * 0.77) < 1e-9, "LONG: defence 2, unrest 8 beats, ships at 77% speed")
     normal = Node(800, 500, 2, owner=0, garrison=10)

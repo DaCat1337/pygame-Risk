@@ -33,9 +33,9 @@ class TitleScreen:
         self.restart_timer = 0.0
         items = [action("PLAY", "play"),
                  choice("OPPONENTS", "opponents", ("1", "2", "3"), first=1),
-                 choice("DIFFICULTY", "difficulty", DIFFICULTIES),
+                 action("DIFFICULTY", "difficulty", summary=lambda: f"{DIFFICULTIES[game.settings['difficulty']]} / "
+                                                                    f"{PACE_NAMES[game.settings['pace']]}"),
                  choice("MAP", "map_size", MAP_NAMES),
-                 choice("MATCH LENGTH", "pace", PACE_NAMES),
                  choice("MUSIC", "music_track", TRACK_NAMES + ["SHUFFLE"]),
                  choice("YOUR COLOUR", "player_color", lambda: [name for _, name in color_choices(game.settings["colorblind"])],
                         swatch=lambda i: color_choices(game.settings["colorblind"])[i][0]),
@@ -85,6 +85,8 @@ class TitleScreen:
             game.start_match()
         elif action_id == "watch":
             game.start_match(has_player=False)
+        elif action_id == "difficulty":
+            game.open_difficulty()
         elif action_id == "help":
             game.show_help()
         elif action_id == "settings":

@@ -15,6 +15,7 @@ import pygame
 from config import PLAYER, SEND_FRACTIONS
 from game import Game
 from ui.input import node_at
+from ui.screens.difficulty import DifficultyScreen
 from ui.screens.gameover import GameOverScreen
 from ui.screens.help import HelpScreen
 from ui.screens.pause import PauseScreen
@@ -66,9 +67,13 @@ def run():
     check(game.settings["opponents"] == 3, "choices wrap round (1 -> 3)")
     game.handle_event(key(pygame.K_RIGHT))
     game.handle_event(key(pygame.K_DOWN))
+    game.handle_event(key(pygame.K_RETURN))
+    check(isinstance(game.overlay, DifficultyScreen), "DIFFICULTY in the title menu opens the difficulty page")
+    frames(game, 2)
     game.handle_event(key(pygame.K_LEFT))
-    check(game.settings["difficulty"] == 0, "DIFFICULTY can be set to EASY")
-    game.handle_event(key(pygame.K_RIGHT))
+    check(game.settings["difficulty"] == 0, "AI LEVEL can be set to EASY on that page")
+    game.handle_event(key(pygame.K_ESCAPE))
+    check(game.overlay is None, "Esc closes the difficulty page")
     game.handle_event(key(pygame.K_DOWN))
     game.handle_event(key(pygame.K_RIGHT))
     check(game.settings["map_size"] == 2, "MAP can be set to LARGE")

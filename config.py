@@ -106,21 +106,43 @@ LANE_SPREAD = 0.6                        # lane offset = +-0.6 * target radius (
 SEND_FRACTIONS = (0.25, 0.5, 0.75, 1.0)
 DEFAULT_SEND_INDEX = 1                   # 50%
 
-# --- match length ("pace"): the title menu's MATCH LENGTH chooses one of these presets ---
-# Without a brake the stronger side snowballs and a match is over in a minute or two. The three brakes:
+# --- match length ("pace"): the DIFFICULTY page chooses a preset, or you set the three brakes yourself (CUSTOM) ---
+# Without a brake the stronger side snowballs and a match is over in a minute or two. The three brakes (they apply to BOTH sides):
 #   defence : attacking ships needed to remove ONE defender (1 = one for one; a fortress adds FORTRESS_BONUS)
 #   unrest  : beats a freshly captured node makes no ships (the conquered people are not working for you yet)
 #   speed   : ship speed as a share of SHIP_SPEED (a longer trip gives the defender time to react)
 # Measured with AI-vs-AI matches (32 per row): MEDIUM roughly doubles the length of a match, LONG roughly triples it.
-PACE_NAMES = ("SHORT", "MEDIUM", "LONG")
-_PACES = [(1.0, 0, 1.0), (1.5, 8, 0.77), (2.0, 8, 0.77)]      # (defence, unrest beats, speed share) for each name
-PACE = {"defence": 1.0, "unrest": 0, "speed": SHIP_SPEED}      # the LIVE values: apply_pace() changes them in place
+DEFENCE_CHOICES = (1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0)     # the values the DIFFICULTY page offers for each brake
+UNREST_CHOICES = (0, 2, 4, 8, 12, 16)
+SPEED_CHOICES = (1.0, 0.9, 0.77, 0.65, 0.5)
+PACE_NAMES = ("SHORT", "MEDIUM", "LONG", "CUSTOM")
+CUSTOM_PACE = 3                                              # the index of CUSTOM in PACE_NAMES
+_PACES = [(1.0, 0, 1.0), (1.5, 8, 0.77), (2.0, 8, 0.77)]      # (defence, unrest beats, speed share) of SHORT / MEDIUM / LONG; each must be in the choices above
+PACE = {"defence": 1.0, "unrest": 0, "speed": SHIP_SPEED}      # the LIVE values: apply_pace() / apply_custom_pace() change them in place
+
+
+def preset_choices(index):
+    """The three brakes of a preset as positions in DEFENCE_CHOICES / UNREST_CHOICES / SPEED_CHOICES."""
+    defence, unrest, speed = _PACES[index]
+    return DEFENCE_CHOICES.index(defence), UNREST_CHOICES.index(unrest), SPEED_CHOICES.index(speed)
+
+
+def matching_preset(defence_i, unrest_i, speed_i):
+    """Which preset has exactly these three brakes? (CUSTOM_PACE if none.)"""
+    for index in range(len(_PACES)):
+        if preset_choices(index) == (defence_i, unrest_i, speed_i):
+            return index
+    return CUSTOM_PACE
+
+
+def apply_custom_pace(defence_i, unrest_i, speed_i):
+    """Make the three brakes live. Every file reads PACE[...] when it needs a value."""
+    PACE.update(defence=DEFENCE_CHOICES[defence_i], unrest=UNREST_CHOICES[unrest_i], speed=SHIP_SPEED * SPEED_CHOICES[speed_i])
 
 
 def apply_pace(index):
-    """Switch the match-length preset (0 SHORT, 1 MEDIUM, 2 LONG). Every file reads PACE[...] when it needs a value."""
-    defence, unrest, speed_share = _PACES[index]
-    PACE.update(defence=defence, unrest=unrest, speed=SHIP_SPEED * speed_share)
+    """Make a preset live (0 SHORT, 1 MEDIUM, 2 LONG)."""
+    apply_custom_pace(*preset_choices(index))
 
 # --- mid-air combat -----------------------------------------------------------------
 CLASH_DIST = 10                          # ships of different owners this close annihilate
@@ -144,6 +166,11 @@ AI_TABLE = {
 AI_PLAYER_BIAS_EXTREME = 1.15            # EXTREME likes to attack the player a bit more
 AI_SURPLUS = 1.2                         # send needed * 1.2 + 3 ships to be safe
 AI_SURPLUS_FLAT = 3
+
+# AI reaction speed, independent of the level: (factor for think_every, factor for start_delay). Slower = it thinks less often
+# and waits longer before its first move. See core/ai.py ai_timing().
+REACTION_NAMES = ("SLOW", "NORMAL", "FAST")
+AI_REACTION = ((1.5, 1.5), (1.0, 1.0), (0.67, 0.5))
 
 # --- look and feel ----------------------------------------------------------------------
 GRID_SPACING = 60

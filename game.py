@@ -14,11 +14,12 @@ import time
 import pygame
 
 from audio.conductor import Conductor
-from config import apply_pace, apply_palette, FPS_TARGET, DT, MAX_TICKS_PER_FRAME, COUNTDOWN_BEATS, SEND_FRACTIONS, SCREEN_W, SCREEN_H, FADE_SECONDS
+from config import apply_custom_pace, apply_palette, matching_preset, preset_choices, CUSTOM_PACE, FPS_TARGET, DT, MAX_TICKS_PER_FRAME, COUNTDOWN_BEATS, SEND_FRACTIONS, SCREEN_W, SCREEN_H, FADE_SECONDS
 from core.world import World
 from graphics.fonts import Fonts
 from graphics.screen import save_screenshot, toggle_fullscreen
 from settings import load_settings, save_settings
+from ui.screens.difficulty import DifficultyScreen
 from ui.screens.gameover import GameOverScreen
 from ui.screens.help import HelpScreen
 from ui.screens.pause import PauseScreen
@@ -33,7 +34,7 @@ class Game:
         self.settings_path = settings_path
         self.shots_dir = shots_dir
         self.settings = load_settings(settings_path)
-        apply_pace(self.settings["pace"])
+        self.sync_pace()
         apply_palette(self.settings["colorblind"], self.settings["player_color"])           # before the screens are built, so they start with the right colours
         self.fonts = Fonts()
         self.clock = pygame.time.Clock()
@@ -92,9 +93,9 @@ class Game:
         """Create a fresh World and show the play screen. seed=None picks a new random map."""
         self.seed = seed if seed is not None else int(time.time() * 1000) % 1_000_000
         s = self.settings
-        apply_pace(s["pace"])
+        self.apply_pace_settings()
         world = World(self.seed, s["opponents"] + 1, s["map_size"], countdown_beats=COUNTDOWN_BEATS, has_player=has_player)
-        world.add_opponents(s["difficulty"])
+        world.add_opponents(s["difficulty"], s["ai_reaction"])
         self.overlay = None
         self.music.set_paused(False)                 # a restart from the pause menu must un-pause the sound too
         self.play.start(world)
@@ -175,7 +176,25 @@ class Game:
         elif key in ("colorblind", "player_color"):
             self.apply_palette()
         elif key == "pace":
-            apply_pace(value)
+            self.sync_pace()
+        elif key in ("custom_defence", "custom_unrest", "custom_speed"):
+            s = self.settings                                  # the three brakes were edited: show the preset they match, else CUSTOM
+            s["pace"] = matching_preset(s["custom_defence"], s["custom_unrest"], s["custom_speed"])
+            self.apply_pace_settings()
+
+    def sync_pace(self):
+        """A preset (SHORT / MEDIUM / LONG) is chosen: its three brakes become the current ones. CUSTOM keeps the saved brakes."""
+        s = self.settings
+        if s["pace"] != CUSTOM_PACE:
+            s["custom_defence"], s["custom_unrest"], s["custom_speed"] = preset_choices(s["pace"])
+        self.apply_pace_settings()
+
+    def apply_pace_settings(self):
+        s = self.settings
+        apply_custom_pace(s["custom_defence"], s["custom_unrest"], s["custom_speed"])
+
+    def open_difficulty(self):
+        self.open_overlay(DifficultyScreen(self))
 
     def toast_if_building(self):
         """A track that was never played yet is synthesised in the background (a few seconds): say so."""
